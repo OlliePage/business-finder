@@ -27,6 +27,9 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests - serve static files"""
+        # Redirect root path to index.html
+        if self.path == '/':
+            self.path = '/index.html'
         # Serve static files
         return SimpleHTTPRequestHandler.do_GET(self)
 
@@ -83,6 +86,10 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
 
 def run_server(port=PORT):
     """Run the HTTP server"""
+    # Change to the web directory to serve files from there
+    web_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(web_dir)
+    
     server_address = ('', port)
     httpd = HTTPServer(server_address, BusinessFinderHandler)
     print(f"Starting Business Finder server on port {port}...")
