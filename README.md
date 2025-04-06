@@ -1,6 +1,4 @@
 # Business Finder
-
-[![Python CI](https://github.com/user/business-finder/actions/workflows/python-ci.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-ci.yml)
 [![codecov](https://codecov.io/gh/user/business-finder/branch/master/graph/badge.svg)](https://codecov.io/gh/user/business-finder)
 
 ## Overview
