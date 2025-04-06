@@ -8,10 +8,88 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             display: flex;
             flex-direction: column;
             height: 100vh;
+        }
+        
+        /* App toolbar styles */
+        .app-toolbar {
+            background-color: #4285F4;
+            color: white;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .app-title h1 {
+            margin: 10px 0;
+            font-size: 24px;
+        }
+        
+        .toolbar-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .toolbar-button {
+            background-color: transparent;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        .toolbar-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .toolbar-button .icon {
+            font-size: 18px;
+        }
+        
+        .toolbar-button.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: white;
+        }
+        
+        /* Style variants for different buttons */
+        .toolbar-button.debug-button.active {
+            border-color: #ea4335;
+            background-color: rgba(234, 67, 53, 0.2);
+        }
+        
+        .toolbar-button.logs-button.active {
+            border-color: #34a853;
+            background-color: rgba(52, 168, 83, 0.2);
+        }
+        
+        .toolbar-button.history-button.active {
+            border-color: #fbbc05;
+            background-color: rgba(251, 188, 5, 0.2);
+        }
+        
+        .toolbar-button.fix-button {
+            background-color: rgba(219, 68, 55, 0.1);
+            border-color: rgba(219, 68, 55, 0.5);
+        }
+        
+        .toolbar-button.fix-button:hover,
+        .toolbar-button.fix-button.active {
+            background-color: rgba(219, 68, 55, 0.2);
+            border-color: #DB4437;
         }
         #container {
             display: flex;
@@ -440,18 +518,23 @@
         /* History panel styles */
         #app-container {
             display: flex;
-            min-height: 100vh;
+            flex: 1;
             width: 100%;
             position: relative;
+            overflow: auto;
+            transition: margin-right 0.3s ease;
         }
         
         #main-content {
             flex: 1;
-            overflow-y: auto;
+            width: 100%;
             padding: 20px;
             display: flex;
             flex-direction: column;
-            transition: margin-right 0.3s ease;
+        }
+        
+        body.history-open #app-container {
+            margin-right: 300px;
         }
         
         #history-panel {
@@ -463,34 +546,26 @@
             display: none;
             position: fixed;
             right: 0;
-            top: 0;
+            top: 60px; /* Position below the toolbar */
             bottom: 0;
-            z-index: 1000;
+            z-index: 100; /* Below toolbar z-index */
             box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            transform: translateX(100%);
         }
         
         #history-panel.visible {
             display: block !important;
+            transform: translateX(0);
         }
         
         /* When history panel is visible, add margin to main content */
-        #history-panel.visible + #main-content {
+        #history-panel.visible ~ #main-content {
             margin-right: 300px;
+            transition: margin-right 0.3s ease;
         }
         
-        #toggle-history {
-            position: fixed;
-            right: 20px;
-            top: 20px;
-            z-index: 100;
-            background-color: #4285F4;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
+        /* Remove the old toggle history button */
         
         .history-item {
             padding: 15px;
@@ -736,29 +811,30 @@
     </style>
 </head>
 <body>
-    <button id="toggle-history">History</button>
+    <!-- Toolbar -->
+    <div class="app-toolbar">
+        <div class="app-title">
+            <h1>Business Finder</h1>
+        </div>
+        <div class="toolbar-buttons">
+            <button id="toolbar-debug-btn" class="toolbar-button debug-button">
+                <span class="icon">🐞</span> Debug Mode
+            </button>
+            <button id="toolbar-logs-btn" class="toolbar-button logs-button">
+                <span class="icon">📋</span> View Search Logs
+            </button>
+            <button id="toolbar-history-btn" class="toolbar-button history-button">
+                <span class="icon">📜</span> History
+            </button>
+            <button id="toolbar-fix-db-btn" class="toolbar-button fix-button" title="Fix Database Schema" style="display: none;">
+                <span class="icon">🔧</span> Fix DB
+            </button>
+        </div>
+    </div>
     
     <div id="app-container">
-        <div id="history-panel">
-            <h2>Search History</h2>
-            <p>Click on a previous search to load its results</p>
-            
-            <div class="history-actions">
-                <button id="refresh-history" class="secondary-button">Refresh History</button>
-                <button id="clean-history" class="secondary-button">Clean Old Searches</button>
-            </div>
-            
-            <div id="history-stats" class="history-stats">
-                <!-- Stats will be displayed here -->
-            </div>
-            
-            <div id="history-list">
-                <!-- History items will be populated here -->
-            </div>
-        </div>
-        
         <div id="main-content">
-            <h1>Business Search Map Selector</h1>
+            <h2>Map Search Interface</h2>
 
             <div class="instructions">
                 <p><strong>Instructions:</strong></p>
@@ -941,14 +1017,25 @@
         </div>
     </div>
     
-    <!-- Debug Toggle Button (always visible) -->
-    <div class="floating-debug-buttons">
-        <div class="floating-debug-button" id="floating-debug-toggle">
-            <button>🐞 Debug</button>
-        </div>
-        <div class="floating-debug-button logs-button" id="floating-logs-toggle">
-            <button>📋 View Search Logs</button>
-        </div>
+    <!-- Debug buttons now in toolbar -->
+</div>
+
+<!-- History panel (outside app container) -->
+<div id="history-panel">
+    <h2>Search History</h2>
+    <p>Click on a previous search to load its results</p>
+    
+    <div class="history-actions">
+        <button id="refresh-history" class="secondary-button">Refresh History</button>
+        <button id="clean-history" class="secondary-button">Clean Old Searches</button>
+    </div>
+    
+    <div id="history-stats" class="history-stats">
+        <!-- Stats will be displayed here -->
+    </div>
+    
+    <div id="history-list">
+        <!-- History items will be populated here -->
     </div>
 </div>
 
@@ -1012,7 +1099,7 @@
         let debugMode = false;
         let currentSortColumn = "name";
         let currentSortDirection = "asc";
-        let isHistoryPanelVisible = false;
+        let isHistoryPanelVisible = false; // Panel starts hidden
         let lastSearchWasCached = false;
         let currentLogs = [];
         
@@ -1258,24 +1345,47 @@
                 checkbox.addEventListener('change', filterLogs);
             });
             
-            // Add floating debug button handler
-            document.getElementById("floating-debug-toggle").addEventListener("click", function() {
+            // Add toolbar debug button handler
+            document.getElementById("toolbar-debug-btn").addEventListener("click", function() {
                 debugMode = !debugMode;
                 document.getElementById("debug-section").style.display = debugMode ? "block" : "none";
+                document.getElementById("toolbar-fix-db-btn").style.display = debugMode ? "inline-flex" : "none";
                 
-                // Update button text
-                this.querySelector("button").textContent = debugMode ? "🐞 Hide Debug" : "🐞 Debug";
+                // Toggle active class
+                this.classList.toggle("active", debugMode);
             });
             
-            // Add floating logs button handler
-            document.getElementById("floating-logs-toggle").addEventListener("click", function() {
+            // Add toolbar logs button handler
+            document.getElementById("toolbar-logs-btn").addEventListener("click", function() {
                 // Fetch and display logs regardless of debug mode
                 fetchAndDisplayLogs();
                 showLogViewer();
+                
+                // Add a brief visual feedback
+                this.classList.add("active");
+                setTimeout(() => {
+                    this.classList.remove("active");
+                }, 300);
             });
             
-            // Add history panel toggle
-            document.getElementById("toggle-history").addEventListener("click", toggleHistoryPanel);
+            // Add toolbar history panel toggle
+            document.getElementById("toolbar-history-btn").addEventListener("click", function() {
+                toggleHistoryPanel();
+                
+                // Toggle active class
+                this.classList.toggle("active", isHistoryPanelVisible);
+            });
+            
+            // Add fix database button handler
+            document.getElementById("toolbar-fix-db-btn").addEventListener("click", function() {
+                fixDatabaseSchema();
+                
+                // Add visual feedback
+                this.classList.add("active");
+                setTimeout(() => {
+                    this.classList.remove("active");
+                }, 1000);
+            });
             
             // Add refresh button handler
             document.getElementById("refresh-history").addEventListener("click", function() {
@@ -1298,14 +1408,64 @@
             
             if (isHistoryPanelVisible) {
                 historyPanel.classList.add("visible");
-                document.getElementById("toggle-history").textContent = "Hide History";
+                document.body.classList.add("history-open");
                 loadSearchHistory(); // Refresh the history
                 loadDatabaseStats(); // Load DB stats
                 console.log("History panel opened, loading history...");
             } else {
                 historyPanel.classList.remove("visible");
-                document.getElementById("toggle-history").textContent = "History";
+                document.body.classList.remove("history-open");
             }
+            
+            // Update toolbar button state
+            document.getElementById("toolbar-history-btn").classList.toggle("active", isHistoryPanelVisible);
+        }
+        
+        function fixDatabaseSchema() {
+            // Show a notification
+            alert("Running database diagnostics and applying fixes. This will update your database schema to support the grid search feature.");
+            
+            fetch('/api/diagnostics', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Database diagnostic result:", data);
+                
+                // Show confirmation message
+                const message = `
+Database schema updated successfully!
+Current columns: ${data.column_names.join(', ')}
+Please refresh the page and try your search again.
+                `;
+                
+                alert(message);
+                
+                // Refresh the history data
+                loadSearchHistory();
+                
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML += 
+                        `<pre>Database schema updated: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            })
+            .catch(error => {
+                console.error("Error fixing database schema:", error);
+                alert(`Error fixing database: ${error.message}`);
+                
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML += 
+                        `<p>Error fixing database: ${error.message}</p>`;
+                }
+            });
         }
         
         function loadDatabaseStats() {

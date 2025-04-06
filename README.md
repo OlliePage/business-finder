@@ -361,6 +361,32 @@ To access search logs:
 - API usage is subject to Google's pricing and quota limits
 - Very dense areas may still not return all possible results
 
+## Debugging Tools
+
+Business Finder includes several debugging tools to help diagnose and fix issues:
+
+### Debug Mode
+
+To access debugging tools:
+1. Click the "🐞 Debug" button in the toolbar
+2. Debug mode will be enabled, revealing additional tools and information
+
+In debug mode, you can:
+- View detailed API responses
+- See internal system logs
+- Access database maintenance tools
+
+### Database Migrations
+
+If you encounter database errors after updating to a new version, you can fix them using:
+
+1. Enable Debug Mode by clicking the "🐞 Debug" button
+2. Click the "🔧 Fix DB" button that appears in the toolbar
+3. Follow the on-screen prompts to update your database schema
+4. Refresh the page after the fix is complete
+
+This will automatically update your database schema to be compatible with the current version of Business Finder.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

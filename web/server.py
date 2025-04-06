@@ -57,6 +57,29 @@ def ensure_in_gitignore():
             f.write("data/*\n")
             f.write("!data/.gitkeep\n")
 
+def migrate_database(conn, cursor):
+    """Apply migrations to the database schema"""
+    print("Checking for needed database migrations...")
+    
+    # Check if sub_radius column exists
+    cursor.execute("PRAGMA table_info(searches)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    # Add sub_radius column if it doesn't exist
+    if 'sub_radius' not in columns:
+        print("Migrating: Adding sub_radius column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN sub_radius INTEGER DEFAULT 3000")
+        conn.commit()
+    
+    # Add max_workers column if it doesn't exist
+    if 'max_workers' not in columns:
+        print("Migrating: Adding max_workers column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN max_workers INTEGER DEFAULT 5")
+        conn.commit()
+    
+    print("Database migration checks completed")
+
+
 def init_database():
     """Initialize the SQLite database for caching search results"""
     # Create data directory if it doesn't exist
@@ -107,6 +130,11 @@ def init_database():
     cursor.execute("PRAGMA foreign_keys = ON")
     
     conn.commit()
+    
+    # Run migrations if database already existed
+    if db_exists:
+        migrate_database(conn, cursor)
+    
     conn.close()
     
     # Print appropriate message based on whether DB existed
@@ -463,6 +491,8 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             self.handle_clean_old_searches(days)
         elif self.path == "/api/search_logs":
             self.handle_search_logs()
+        elif self.path == "/api/diagnostics":
+            self.handle_diagnostics()
         else:
             self.send_error(404, "Not Found")
             
@@ -580,6 +610,48 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             print(f"Error getting search by ID: {e}")
             self.send_error(500, f"Internal Server Error: {str(e)}")
+            
+    def handle_diagnostics(self):
+        """Handle diagnostic requests for debugging database issues"""
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            # Get table structure
+            cursor.execute("PRAGMA table_info(searches)")
+            table_info = cursor.fetchall()
+            column_names = [column[1] for column in table_info]
+            
+            # Run migration forcefully
+            migrate_database(conn, cursor)
+            
+            # Test a search insertion
+            test_params = {
+                'search_term': 'TEST_SEARCH',
+                'latitude': 0,
+                'longitude': 0,
+                'radius': 1000,
+                'sub_radius': 3000,
+                'max_workers': 5
+            }
+            
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            diagnostic_info = {
+                "column_names": column_names,
+                "migration_applied": True,
+                "database_path": DB_PATH
+            }
+            
+            self.wfile.write(json.dumps(diagnostic_info).encode())
+            
+        except Exception as e:
+            print(f"Error running diagnostics: {e}")
+            self.send_error(500, f"Diagnostic Error: {str(e)}")
 
     def handle_search(self):
         """Handle search API requests"""
