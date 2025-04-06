@@ -1,0 +1,25 @@
+# Business Finder Configuration Example
+# This file can be copied to ~/.business_finder/config.yaml or the project root
+
+# API Configuration
+api:
+  # Your Google API key
+  key: YOUR_API_KEY_HERE
+
+# Search Configuration
+search:
+  # Sub-radius in meters for grid-based searches (default: 3000)
+  # A smaller value will result in more comprehensive results but use more API calls
+  sub_radius: 3000
+  
+  # Maximum number of concurrent searches in grid-based search (default: 5)
+  # A higher value will speed up large area searches but use more concurrent connections
+  max_workers: 5
+
+# Export Configuration
+export:
+  # Default format for exporting results (csv or json)
+  default_format: csv
+  
+  # Default directory for exporting results
+  default_output_dir: data

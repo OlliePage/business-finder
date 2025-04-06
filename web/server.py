@@ -20,8 +20,8 @@ import urllib.parse
 parent_dir = str(Path(__file__).resolve().parent.parent)
 sys.path.append(parent_dir)
 
-from business_finder.api.places import search_places
-from business_finder.config import get_api_key
+from business_finder.api.places import search_places, get_search_logs
+from business_finder.config import get_api_key, get_config
 
 # Default port
 PORT = 8000
@@ -86,6 +86,8 @@ def init_database():
         latitude REAL,
         longitude REAL,
         radius INTEGER,
+        sub_radius INTEGER DEFAULT 3000,
+        max_workers INTEGER DEFAULT 5,
         created_at TIMESTAMP,
         hash TEXT UNIQUE
     )
@@ -151,13 +153,15 @@ def cache_search_results(params, results):
             print("Creating new search record")
             cursor.execute('''
             INSERT INTO searches 
-            (search_term, latitude, longitude, radius, created_at, hash)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (search_term, latitude, longitude, radius, sub_radius, max_workers, created_at, hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 params.get('search_term', ''),
                 params.get('latitude', 0),
                 params.get('longitude', 0),
                 params.get('radius', 0),
+                params.get('sub_radius', 3000),
+                params.get('max_workers', 5),
                 datetime.now().isoformat(),
                 param_hash
             ))
@@ -198,7 +202,7 @@ def get_cached_results(params):
         
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.hash = ?
@@ -213,11 +217,13 @@ def get_cached_results(params):
                 'latitude': result[2],
                 'longitude': result[3],
                 'radius': result[4],
-                'created_at': result[5]
+                'sub_radius': result[5],
+                'max_workers': result[6],
+                'created_at': result[7]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[6]),
+                'results': json.loads(result[8]),
                 'cached': True
             }
         return None
@@ -241,7 +247,7 @@ def get_recent_searches(limit=10):
         
         # Get the most recent searches
         cursor.execute('''
-        SELECT id, search_term, latitude, longitude, radius, created_at
+        SELECT id, search_term, latitude, longitude, radius, sub_radius, max_workers, created_at
         FROM searches
         ORDER BY created_at DESC
         LIMIT ?
@@ -258,7 +264,9 @@ def get_recent_searches(limit=10):
                 'latitude': row[2],
                 'longitude': row[3],
                 'radius': row[4],
-                'created_at': row[5]
+                'sub_radius': row[5],
+                'max_workers': row[6],
+                'created_at': row[7]
             })
         
         print(f"Returning {len(searches)} formatted searches")
@@ -277,7 +285,7 @@ def get_search_by_id(search_id):
     try:
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.id = ?
@@ -292,11 +300,13 @@ def get_search_by_id(search_id):
                 'latitude': result[2],
                 'longitude': result[3],
                 'radius': result[4],
-                'created_at': result[5]
+                'sub_radius': result[5],
+                'max_workers': result[6],
+                'created_at': result[7]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[6]),
+                'results': json.loads(result[8]),
                 'cached': True
             }
         return None
@@ -451,6 +461,8 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
         elif self.path.startswith("/api/clean_old_searches/"):
             days = self.path.split("/")[-1]
             self.handle_clean_old_searches(days)
+        elif self.path == "/api/search_logs":
+            self.handle_search_logs()
         else:
             self.send_error(404, "Not Found")
             
@@ -532,6 +544,22 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             print(f"Error getting recent searches: {e}")
             self.send_error(500, f"Internal Server Error: {str(e)}")
     
+    def handle_search_logs(self):
+        """Return the logs from the most recent search operation"""
+        try:
+            # Get logs from the places API
+            logs = get_search_logs()
+            
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(logs).encode())
+        except Exception as e:
+            print(f"Error getting search logs: {e}")
+            self.send_error(500, f"Internal Server Error: {str(e)}")
+        
     def handle_search_by_id(self, search_id):
         """Return results for a specific search ID"""
         try:
@@ -566,6 +594,11 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             latitude = params.get('latitude')
             longitude = params.get('longitude')
             radius = params.get('radius', 1000)
+            
+            # Get defaults from config if not provided
+            config = get_config()
+            sub_radius = params.get('sub_radius', config['sub_radius'])
+            max_workers = params.get('max_workers', config['max_workers'])
             use_cache = params.get('use_cache', True)  # Default to using cache
             
             # Validate parameters
@@ -578,7 +611,9 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                 'search_term': search_term,
                 'latitude': latitude,
                 'longitude': longitude,
-                'radius': radius
+                'radius': radius,
+                'sub_radius': sub_radius,
+                'max_workers': max_workers
             }
             
             # Check cache first if enabled
@@ -603,7 +638,19 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             
             # Call business_finder directly with the parameters
             print(f'Searching for "{search_term}" within {radius}m of coordinates [{latitude}, {longitude}]...')
-            businesses = search_places(api_key, search_term, latitude, longitude, radius)
+            
+            if radius > sub_radius:
+                print(f"Using grid search with sub-radius {sub_radius}m and {max_workers} parallel workers")
+                
+            businesses = search_places(
+                api_key, 
+                search_term, 
+                latitude, 
+                longitude, 
+                radius, 
+                sub_radius=sub_radius, 
+                max_workers=max_workers
+            )
             
             # Save results to data directory
             data_dir = os.path.join(parent_dir, 'data')

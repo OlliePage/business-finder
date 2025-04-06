@@ -171,7 +171,10 @@ Options:
 - `--search-term TERM` - Search term (e.g., "coffee shop")
 - `--latitude LAT` - Center latitude
 - `--longitude LNG` - Center longitude
-- `--radius METERS` - Search radius in meters (max 50000)
+- `--radius METERS` - Search radius in meters (large radii will be split into sub-searches)
+- `--sub-radius METERS` - Sub-search radius for grid-based searches (default: from config)
+- `--max-workers N` - Maximum number of parallel searches for grid-based searches (default: from config)
+- `--verbose` - Enable verbose output with detailed search logs
 - `--output FILE` - Output filename
 - `--format FORMAT` - Output format (csv or json)
 - `--json-params JSON` - JSON string with all parameters
@@ -185,6 +188,10 @@ business-finder config [OPTIONS]
 
 Options:
 - `--set-api-key KEY` - Set Google API Key
+- `--set-sub-radius METERS` - Set default sub-radius for grid searches (in meters)
+- `--set-max-workers N` - Set default maximum parallel workers for grid searches
+- `--show` - Show current configuration
+- `--export-config FILE` - Export configuration to a YAML file
 
 ## Examples
 
@@ -202,6 +209,14 @@ business-finder search --search-term "coffee shop" --latitude 37.7749 --longitud
 business-finder search --search-term "restaurant" --latitude 40.7128 --longitude -74.0060 --radius 2000 --format json --output nyc_restaurants.json
 ```
 
+### Grid-Based Search Example
+
+```bash
+# Search for hotels in a large 10km radius around London
+# Breaking it into smaller 2km sub-searches with 10 parallel workers
+business-finder search --search-term "hotel" --latitude 51.5074 --longitude -0.1278 --radius 10000 --sub-radius 2000 --max-workers 10 --output london_hotels.csv
+```
+
 ## Integration Options
 
 ### Programmatic Usage
@@ -212,7 +227,7 @@ You can use the package directly in your Python code:
 from business_finder.api.places import search_places
 from business_finder.exporters.csv_exporter import write_to_csv
 
-# Search for businesses
+# Basic search (single API call)
 businesses = search_places(
     api_key="YOUR_API_KEY",
     search_term="gym",
@@ -221,8 +236,19 @@ businesses = search_places(
     radius=1500
 )
 
+# Grid-based search for larger radius (multiple API calls in parallel)
+businesses_large_area = search_places(
+    api_key="YOUR_API_KEY",
+    search_term="gym",
+    latitude=34.0522,
+    longitude=-118.2437,
+    radius=10000,        # Large radius that will be split into smaller searches
+    sub_radius=2500,     # Each sub-search will use this radius
+    max_workers=8        # Number of parallel searches
+)
+
 # Export results
-write_to_csv(businesses, "los_angeles_gyms.csv")
+write_to_csv(businesses_large_area, "los_angeles_gyms.csv")
 ```
 
 ### Web Service Integration
@@ -234,11 +260,106 @@ For a complete web service, check out the [business-finder-service](https://gith
 - User authentication
 - Search history
 
+## Grid-Based Search for Large Areas
+
+Business Finder includes an advanced grid-based search feature that overcomes the Google Places API's limitation of 60 results per search:
+
+### How It Works
+
+1. When a large radius is specified, the area is automatically divided into a grid of smaller sub-areas
+2. Each sub-area is searched independently (in parallel)
+3. The results are combined and deduplicated
+4. The final set is returned to the user
+
+This approach allows you to search much larger areas and get more comprehensive results than would be possible with a single API call.
+
+### Configuration
+
+You can configure the grid search parameters using either the CLI or YAML configuration files:
+
+#### CLI Configuration
+
+```bash
+# Set the sub-radius (in meters) for grid searches
+business-finder config --set-sub-radius 3000
+
+# Set the maximum number of concurrent searches
+business-finder config --set-max-workers 8
+
+# View current configuration
+business-finder config --show
+
+# Export configuration to a YAML file
+business-finder config --export-config ~/my-business-finder-config.yaml
+```
+
+#### YAML Configuration
+
+Business Finder also supports YAML configuration files for more flexibility. Create or edit a YAML file with the following structure:
+
+```yaml
+# API Configuration
+api:
+  key: YOUR_API_KEY_HERE
+
+# Search Configuration
+search:
+  # Sub-radius in meters for grid-based searches
+  sub_radius: 3000
+  
+  # Maximum number of concurrent searches
+  max_workers: 5
+```
+
+Configuration files are searched in the following order of precedence:
+1. `~/.business_finder/config.yaml` (global user configuration)
+2. `./config.yaml` (project directory configuration)
+3. `~/.business_finder/config.json` (legacy configuration)
+
+A sample configuration file is provided at `config.yaml.example` in the project root.
+
+You can also specify these parameters for individual searches:
+
+```bash
+# Override default sub-radius and max workers for this search
+business-finder search --search-term "restaurant" --latitude 40.7128 --longitude -74.0060 --radius 10000 --sub-radius 2500 --max-workers 10
+```
+
+### Performance Considerations
+
+- Using smaller sub-radii will result in more comprehensive results but will make more API calls
+- Increasing max-workers speeds up searches but uses more concurrent connections
+- API usage costs and rate limits should be considered when adjusting these parameters
+
+### Search Logs and Debugging
+
+Business Finder provides a detailed logging system for grid-based searches, allowing you to see exactly what's happening in the background:
+
+- **Grid Generation**: See how the search area is divided into smaller sub-areas
+- **Search Progress**: Track the progress of each sub-search in real-time
+- **Result Deduplication**: View statistics on duplicate results that are filtered out
+- **Performance Metrics**: Get timing information for each search operation
+
+To access search logs:
+
+1. **In the Web UI**:
+   - Click "Toggle Debug Mode" to enable debugging features
+   - After performing a search, the logs will be automatically displayed
+   - Or click "Show Search Logs" to view logs from the most recent search
+   - Filter logs by level (INFO, WARNING, ERROR, DEBUG)
+
+2. **In the CLI**:
+   - Search logs are printed to the standard output during searches
+   - Use the `--verbose` flag for additional debug information:
+     ```bash
+     business-finder search --search-term "restaurant" --latitude 51.5074 --longitude -0.1278 --radius 10000 --verbose
+     ```
+
 ## Limitations
 
-- The Google Places API has a limit of returning up to 60 results per search (20 results per page, max 3 pages)
+- Even with grid-based search, the Google Places API has rate limits that may affect very large searches
 - API usage is subject to Google's pricing and quota limits
-- Large radius searches in dense areas may hit result limits
+- Very dense areas may still not return all possible results
 
 ## Contributing
 

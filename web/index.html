@@ -602,6 +602,100 @@
         .delete-search:hover {
             color: #d93025;
         }
+        
+        /* Log viewer styles */
+        .log-container {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        #log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        #log-table th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2;
+            z-index: 10;
+        }
+        
+        .log-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .log-filters {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .log-filters label {
+            font-weight: normal;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .log-entry {
+            border-bottom: 1px solid #eee;
+        }
+        
+        .log-entry td {
+            vertical-align: top;
+            padding: 8px;
+        }
+        
+        .log-entry:hover {
+            background-color: #f8f8f8;
+        }
+        
+        .log-level {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .log-level-INFO {
+            background-color: #4285F4;
+        }
+        
+        .log-level-WARNING {
+            background-color: #FBBC05;
+        }
+        
+        .log-level-ERROR {
+            background-color: #EA4335;
+        }
+        
+        .log-level-DEBUG {
+            background-color: #34A853;
+        }
+        
+        .log-details {
+            font-family: monospace;
+            white-space: pre-wrap;
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .log-timestamp {
+            font-family: monospace;
+            color: #666;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -806,6 +900,51 @@
         <div id="debug-output"></div>
         <div class="debug-buttons">
             <button id="toggle-debug">Toggle Debug Mode</button>
+            <button id="show-logs">Show Search Logs</button>
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer Modal -->
+<div id="log-modal" class="modal">
+    <div class="modal-content" style="width: 95%; max-width: 95%; max-height: 90vh; overflow: auto;">
+        <div class="modal-header">
+            <h3>Search Log Details</h3>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="log-controls">
+                <button id="refresh-logs" class="secondary-button">Refresh Logs</button>
+                <div class="log-filters">
+                    <label>
+                        <input type="checkbox" checked data-level="INFO"> INFO
+                    </label>
+                    <label>
+                        <input type="checkbox" checked data-level="WARNING"> WARNING
+                    </label>
+                    <label>
+                        <input type="checkbox" checked data-level="ERROR"> ERROR
+                    </label>
+                    <label>
+                        <input type="checkbox" checked data-level="DEBUG"> DEBUG
+                    </label>
+                </div>
+            </div>
+            <div class="log-container">
+                <table id="log-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th>Message</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-entries">
+                        <!-- Log entries will be populated here -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -828,6 +967,7 @@
         let currentSortDirection = "asc";
         let isHistoryPanelVisible = false;
         let lastSearchWasCached = false;
+        let currentLogs = [];
         
         // Filter settings
         let filterSettings = {
@@ -1060,6 +1200,15 @@
                     document.getElementById("debug-section").style.display = debugMode ? "block" : "none";
                     document.getElementById("toggle-debug").textContent = debugMode ? "Hide Debug Info" : "Show Debug Info";
                 }
+            });
+            
+            // Add log viewer functionality
+            document.getElementById("show-logs").addEventListener("click", showLogViewer);
+            document.getElementById("refresh-logs").addEventListener("click", fetchAndDisplayLogs);
+            
+            // Setup log filters
+            document.querySelectorAll('.log-filters input').forEach(checkbox => {
+                checkbox.addEventListener('change', filterLogs);
             });
             
             // Add history panel toggle
@@ -1662,6 +1811,12 @@
                 if (debugMode) {
                     document.getElementById("debug-output").innerHTML = 
                         `<pre>API Response: ${JSON.stringify(data, null, 2)}</pre>`;
+                        
+                    // Automatically fetch logs in debug mode
+                    setTimeout(function() {
+                        fetchAndDisplayLogs();
+                        showLogViewer();
+                    }, 500);
                 }
                 
                 // Refresh history if panel is visible
@@ -1965,6 +2120,115 @@
             }
         }
 
+        function showLogViewer() {
+            // Show the log modal
+            const modal = document.getElementById("log-modal");
+            modal.style.display = "flex";
+            
+            // Set up close button
+            document.querySelectorAll(".close-modal").forEach(button => {
+                button.onclick = function() {
+                    modal.style.display = "none";
+                };
+            });
+            
+            // Also close when clicking outside the modal
+            window.onclick = function(event) {
+                if (event.target === modal) {
+                    modal.style.display = "none";
+                }
+            };
+            
+            // Fetch and display logs
+            fetchAndDisplayLogs();
+        }
+        
+        function fetchAndDisplayLogs() {
+            fetch('/api/search_logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(logs => {
+                // Store logs for filtering
+                currentLogs = logs;
+                
+                // Display logs
+                displayLogs(logs);
+            })
+            .catch(error => {
+                console.error("Error fetching search logs:", error);
+                document.getElementById("log-entries").innerHTML = 
+                    `<tr><td colspan="4">Error fetching logs: ${error.message}</td></tr>`;
+            });
+        }
+        
+        function displayLogs(logs) {
+            const tbody = document.getElementById("log-entries");
+            
+            // Clear existing logs
+            tbody.innerHTML = "";
+            
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='4'>No logs found</td></tr>";
+                return;
+            }
+            
+            // Get enabled log levels
+            const enabledLevels = Array.from(document.querySelectorAll('.log-filters input:checked'))
+                .map(checkbox => checkbox.dataset.level);
+            
+            // Filter logs by level
+            const filteredLogs = logs.filter(log => enabledLevels.includes(log.level));
+            
+            // Display filtered logs
+            filteredLogs.forEach(log => {
+                const row = document.createElement("tr");
+                row.className = "log-entry";
+                
+                // Format timestamp
+                let timestamp = log.timestamp;
+                try {
+                    const date = new Date(log.timestamp);
+                    timestamp = date.toLocaleTimeString() + '.' + date.getMilliseconds().toString().padStart(3, '0');
+                } catch (e) {
+                    // Use original timestamp if parsing fails
+                }
+                
+                // Create level badge
+                const levelBadge = `<span class="log-level log-level-${log.level}">${log.level}</span>`;
+                
+                // Format details
+                let detailsHtml = "";
+                if (log.details) {
+                    const detailsJson = JSON.stringify(log.details, null, 2);
+                    detailsHtml = `<div class="log-details">${detailsJson}</div>`;
+                }
+                
+                // Set row content
+                row.innerHTML = `
+                    <td class="log-timestamp">${timestamp}</td>
+                    <td>${levelBadge}</td>
+                    <td>${log.message}</td>
+                    <td>${detailsHtml}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function filterLogs() {
+            // Display logs with current filter settings
+            displayLogs(currentLogs);
+        }
+        
         function downloadAsCSV(resultsToDownload) {
             if (!resultsToDownload || resultsToDownload.length === 0) {
                 showError("No results to download");
