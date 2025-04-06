@@ -1404,8 +1404,8 @@
             const link = document.createElement("a");
             link.setAttribute("href", url);
             const fileName = resultsToDownload.length === allSearchResults.length 
-                ? "all-business-results.csv" 
-                : `business-results-${resultsToDownload.length}.csv`;
+                ? "data/all-business-results.csv" 
+                : `data/business-results-${resultsToDownload.length}.csv`;
             link.setAttribute("download", fileName);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
@@ -1415,6 +1415,7 @@
     </script>
 
     <!-- Load Google Maps JavaScript API with Places library -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpAep2dTkm75_bAQ0B3gUGC8M995BZtL0&libraries=places&callback=initMap" async defer></script>
+    <!-- API key will be automatically injected by server.py when using the web server -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_PLACEHOLDER&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
