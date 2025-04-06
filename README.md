@@ -77,24 +77,44 @@ For detailed instructions on running CI checks locally before pushing, see [CI_G
 
 ## Quick Start
 
-### 1. Configure Your API Key
+### 1. Using the Makefile (Recommended)
+
+The project includes a Makefile with simple commands to get you started quickly:
+
+```bash
+# View all available commands
+make help
+
+# Set up the Poetry environment
+make setup
+
+# Configure your Google API key
+make configure
+
+# Run the web server
+make run-server
+```
+
+### 2. Manual Setup
+
+#### Configure Your API Key
 
 ```bash
 # Set your Google API key 
 business-finder config --set-api-key "YOUR_GOOGLE_API_KEY"
 ```
 
-### 2. Use the Web Interface
+#### Use the Web Interface
 
 You can use Business Finder in two ways:
 
-#### Option A: Standalone HTML page
+##### Option A: Standalone HTML page
 Open `web/index.html` in your browser (add your API key to the URL):
 ```
 file:///path/to/business-finder/web/index.html?key=YOUR_GOOGLE_API_KEY
 ```
 
-#### Option B: Run the built-in web server (Recommended)
+##### Option B: Run the built-in web server
 ```bash
 # Start the web server
 python web/server.py
@@ -105,6 +125,8 @@ python web/server.py
 
 The web server automatically injects your API key from your configuration, so you don't need to manually add it to the HTML file.
 
+### 3. Using the Web Interface
+
 Follow these steps:
 1. Click anywhere on the map to set your search center
 2. Adjust the circle radius by dragging or using the slider
@@ -113,7 +135,7 @@ Follow these steps:
 5. Filter and sort results as needed
 6. Download results as CSV or click "Copy Parameters" to get the command-line version
 
-### 3. Run the Search
+### 4. Run the Search
 
 ```bash
 # Using parameters copied from the web interface
@@ -260,6 +282,7 @@ business-finder/
 ├── README.md                   # Project documentation
 ├── LICENSE                     # License file (e.g., MIT)
 ├── CLAUDE.md                   # Instructions for Claude Code AI
+├── Makefile                    # Makefile with common commands
 ├── pyproject.toml              # Poetry configuration
 ├── poetry.lock                 # Poetry locked dependencies  
 ├── setup.py                    # Package installation script
