@@ -418,6 +418,17 @@
             content: '↓';
             opacity: 1;
         }
+        
+        /* Style for Google Maps links */
+        td a {
+            color: #4285F4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        td a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -569,7 +580,7 @@
         <table id="results-table">
             <thead>
                 <tr>
-                    <th class="sortable" data-sort="name">Name <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="name">Name (Maps Link) <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="address">Address <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="phone">Phone <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="rating">Rating <span class="sort-arrow">↕</span></th>
@@ -1123,7 +1134,7 @@
                     rating: rating,
                     total_ratings: reviewCount,
                     is_open_now: Math.random() > 0.3 ? "Yes" : "No", 
-                    place_id: `place${i}${Math.random().toString(36).substring(7)}`
+                    place_id: `ChIJ${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`
                 });
             }
             
@@ -1308,9 +1319,18 @@
             visibleResults.forEach(business => {
                 const row = document.createElement("tr");
                 
-                // Name cell
+                // Name cell with Google Maps link
                 const nameCell = document.createElement("td");
-                nameCell.textContent = business.name;
+                if (business.place_id) {
+                    const link = document.createElement("a");
+                    link.href = `https://www.google.com/maps/place/?q=place_id:${business.place_id}`;
+                    link.textContent = business.name;
+                    link.target = "_blank";
+                    link.title = "View on Google Maps";
+                    nameCell.appendChild(link);
+                } else {
+                    nameCell.textContent = business.name;
+                }
                 row.appendChild(nameCell);
                 
                 // Address cell
@@ -1378,17 +1398,29 @@
                 { label: "Address", key: "address" },
                 { label: "Phone", key: "phone" },
                 { label: "Website", key: "website" },
+                { label: "Google Maps URL", key: "maps_url" },
                 { label: "Rating", key: "rating" },
                 { label: "Total Ratings", key: "total_ratings" },
                 { label: "Is Open Now", key: "is_open_now" },
                 { label: "Place ID", key: "place_id" }
             ];
             
+            // Add Google Maps URLs to the data
+            const resultsWithMapsUrls = resultsToDownload.map(result => {
+                const item = {...result};
+                if (item.place_id) {
+                    item.maps_url = `https://www.google.com/maps/place/?q=place_id:${item.place_id}`;
+                } else {
+                    item.maps_url = "N/A";
+                }
+                return item;
+            });
+            
             // Create CSV header row
             let csvContent = headers.map(header => `"${header.label}"`).join(",") + "\n";
             
             // Add data rows
-            resultsToDownload.forEach(result => {
+            resultsWithMapsUrls.forEach(result => {
                 const row = headers.map(header => {
                     // Handle cases where the property might not exist
                     const value = result[header.key] !== undefined ? result[header.key] : "";
