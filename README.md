@@ -74,6 +74,8 @@ These CI workflows ensure that:
 - Test coverage remains high
 - Package releases are tested before publishing
 
+For detailed instructions on running CI checks locally before pushing, see [CI_GUIDE.md](CI_GUIDE.md).
+
 ## Quick Start
 
 ### 1. Configure Your API Key

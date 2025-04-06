@@ -5,15 +5,15 @@ MOCK_PLACE_SEARCH_RESPONSE = {
         {
             "name": "Test Business 1",
             "place_id": "place123",
-            "vicinity": "123 Test Street"
+            "vicinity": "123 Test Street",
         },
         {
             "name": "Test Business 2",
             "place_id": "place456",
-            "vicinity": "456 Test Avenue"
-        }
+            "vicinity": "456 Test Avenue",
+        },
     ],
-    "status": "OK"
+    "status": "OK",
 }
 
 MOCK_PLACE_DETAILS_RESPONSE = {
@@ -25,11 +25,9 @@ MOCK_PLACE_DETAILS_RESPONSE = {
         "website": "https://testbusiness1.com",
         "rating": 4.5,
         "user_ratings_total": 100,
-        "opening_hours": {
-            "open_now": True
-        }
+        "opening_hours": {"open_now": True},
     },
-    "status": "OK"
+    "status": "OK",
 }
 
 MOCK_BUSINESS_DATA = [
@@ -41,7 +39,7 @@ MOCK_BUSINESS_DATA = [
         "rating": 4.5,
         "total_ratings": 100,
         "is_open_now": "Yes",
-        "place_id": "place123"
+        "place_id": "place123",
     },
     {
         "name": "Test Business 2",
@@ -51,6 +49,6 @@ MOCK_BUSINESS_DATA = [
         "rating": 3.8,
         "total_ratings": 50,
         "is_open_now": "No",
-        "place_id": "place456"
-    }
+        "place_id": "place456",
+    },
 ]

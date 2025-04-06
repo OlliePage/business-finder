@@ -9,9 +9,17 @@ def write_to_csv(businesses, output_file):
         return False
 
     try:
-        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['name', 'address', 'phone', 'website', 'rating',
-                          'total_ratings', 'is_open_now', 'place_id']
+        with open(output_file, "w", newline="", encoding="utf-8") as csvfile:
+            fieldnames = [
+                "name",
+                "address",
+                "phone",
+                "website",
+                "rating",
+                "total_ratings",
+                "is_open_now",
+                "place_id",
+            ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()

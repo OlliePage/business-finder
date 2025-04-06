@@ -9,7 +9,7 @@ def write_to_json(businesses, output_file):
         return False
 
     try:
-        with open(output_file, 'w', encoding='utf-8') as jsonfile:
+        with open(output_file, "w", encoding="utf-8") as jsonfile:
             json.dump(businesses, jsonfile, indent=2)
 
         print(f"Successfully exported {len(businesses)} businesses to {output_file}")
