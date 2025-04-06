@@ -242,7 +242,9 @@
             padding: 15px;
             background-color: #f2f2f2;
             border-radius: 6px;
-            display: none;
+            display: none;  /* Hidden by default */
+            border: 1px solid #ea4335;
+            box-shadow: 0 0 10px rgba(234, 67, 53, 0.3);
         }
         .debug-section h3 {
             margin-top: 0;
@@ -696,6 +698,41 @@
             color: #666;
             white-space: nowrap;
         }
+        
+        /* Floating debug button styles */
+        .floating-debug-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .floating-debug-button {
+            position: relative;
+        }
+        
+        .floating-debug-button button {
+            background-color: #ea4335;
+            color: white;
+            font-weight: bold;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .logs-button button {
+            background-color: #4285F4;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -901,6 +938,16 @@
         <div class="debug-buttons">
             <button id="toggle-debug">Toggle Debug Mode</button>
             <button id="show-logs">Show Search Logs</button>
+        </div>
+    </div>
+    
+    <!-- Debug Toggle Button (always visible) -->
+    <div class="floating-debug-buttons">
+        <div class="floating-debug-button" id="floating-debug-toggle">
+            <button>🐞 Debug</button>
+        </div>
+        <div class="floating-debug-button logs-button" id="floating-logs-toggle">
+            <button>📋 View Search Logs</button>
         </div>
     </div>
 </div>
@@ -1209,6 +1256,22 @@
             // Setup log filters
             document.querySelectorAll('.log-filters input').forEach(checkbox => {
                 checkbox.addEventListener('change', filterLogs);
+            });
+            
+            // Add floating debug button handler
+            document.getElementById("floating-debug-toggle").addEventListener("click", function() {
+                debugMode = !debugMode;
+                document.getElementById("debug-section").style.display = debugMode ? "block" : "none";
+                
+                // Update button text
+                this.querySelector("button").textContent = debugMode ? "🐞 Hide Debug" : "🐞 Debug";
+            });
+            
+            // Add floating logs button handler
+            document.getElementById("floating-logs-toggle").addEventListener("click", function() {
+                // Fetch and display logs regardless of debug mode
+                fetchAndDisplayLogs();
+                showLogViewer();
             });
             
             // Add history panel toggle
