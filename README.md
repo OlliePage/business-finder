@@ -1,7 +1,6 @@
 # Business Finder
 
-[![Python Tests](https://github.com/user/business-finder/actions/workflows/python-tests.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-tests.yml)
-[![Python Linting](https://github.com/user/business-finder/actions/workflows/python-lint.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-lint.yml)
+[![Python CI](https://github.com/user/business-finder/actions/workflows/python-ci.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-ci.yml)
 [![codecov](https://codecov.io/gh/user/business-finder/branch/master/graph/badge.svg)](https://codecov.io/gh/user/business-finder)
 
 ## Overview
@@ -64,8 +63,9 @@ For more detailed information about testing, see the [tests/README.md](tests/REA
 
 This project uses GitHub Actions for continuous integration and delivery:
 
-- **Python Tests**: Runs the test suite on multiple Python versions (3.9, 3.10, 3.11)
-- **Python Linting**: Checks code quality with flake8, black, and isort
+- **Python CI**: A combined workflow that runs:
+  - **Linting**: Checks code quality with flake8, black, and isort
+  - **Tests**: Runs the test suite on multiple Python versions (3.9, 3.10, 3.11)
 - **Python Publish**: Builds and publishes the package to PyPI when a new release is created
 
 These CI workflows ensure that:

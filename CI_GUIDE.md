@@ -96,4 +96,9 @@ chmod +x .git/hooks/pre-commit
 
 ## GitHub Actions
 
-The CI checks that run in GitHub Actions are defined in the `.github/workflows/` directory. These workflows closely match the local checks described above.
+The CI checks that run in GitHub Actions are defined in the `.github/workflows/python-ci.yml` file. This workflow includes:
+
+1. **Linting job**: Runs flake8, black, and isort checks
+2. **Test job**: Runs pytest on multiple Python versions and uploads coverage reports
+
+These closely match the local checks described above.
