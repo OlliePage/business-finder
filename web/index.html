@@ -1362,8 +1362,8 @@
                         console.log("API key element not found in DOM");
                     }
                     
-                    // Force display error message to help with debugging
-                    showError("Debug: Starting Google Sheets export process...");
+                    // Show status message
+                    showMessage("Starting Google Sheets export process...");
                     
                     // Set the export format to Google Sheets
                     const requestData = {
@@ -1393,12 +1393,12 @@
                         if (!response.ok) {
                             throw new Error(`HTTP error! Status: ${response.status}`);
                         }
-                        showError("Debug: Response received, parsing JSON...");
+                        console.log("Response received, parsing JSON...");
                         return response.json();
                     })
                     .then(data => {
                         console.log("Google Sheets response data:", JSON.stringify(data));
-                        showError("Debug: JSON parsed successfully");
+                        console.log("JSON parsed successfully");
                         
                         if (data && data.url) {
                             // Show appropriate message based on if it's a demo or real export
@@ -1425,10 +1425,10 @@
                             
                             // Open the Google Sheets URL in a new tab
                             console.log("Opening URL in new tab:", data.url);
-                            showError("Debug: Opening URL: " + data.url);
+                            console.log("Opening URL: " + data.url);
                             window.open(data.url, '_blank');
                         } else {
-                            showError("Debug: No URL in response data");
+                            console.log("Error: No URL in response data");
                             throw new Error('No Google Sheets URL returned');
                         }
                     })

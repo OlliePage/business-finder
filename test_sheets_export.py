@@ -43,6 +43,7 @@ def main():
     print(f"Token path: {token_path}")
     
     print(f"Credentials exist: {os.path.exists(credentials_path)}")
+    print(f"Token exists: {os.path.exists(token_path)}")
     
     # Check what's in the credentials directory
     creds_dir = os.path.join(project_root, 'credentials')
@@ -50,8 +51,24 @@ def main():
         print(f"Contents of credentials directory:")
         for file in os.listdir(creds_dir):
             print(f"  - {file}")
+            file_path = os.path.join(creds_dir, file)
+            print(f"    Size: {os.path.getsize(file_path)} bytes")
+            print(f"    Permissions: {oct(os.stat(file_path).st_mode)[-3:]}")
     else:
         print(f"Credentials directory does not exist")
+        
+    # Try to read the credentials file to verify it's valid
+    if os.path.exists(credentials_path):
+        try:
+            with open(credentials_path, 'r') as f:
+                creds_content = f.read()
+                print(f"Credentials file successfully read")
+                # Just check it's valid JSON
+                import json
+                json.loads(creds_content)
+                print(f"Credentials file is valid JSON")
+        except Exception as e:
+            print(f"Error reading credentials file: {e}")
     
     try:
         # Try exporting to Google Sheets
