@@ -26,52 +26,37 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
     """HTTP request handler for Business Finder web app"""
 
     def do_GET(self):
-        """Handle GET requests - serve static files and inject API key"""
+        """Handle GET requests - serve static files"""
         # Redirect root path to index.html
         if self.path == '/':
             self.path = '/index.html'
+            
+        # Get API key from environment/config
+        api_key = get_api_key()
         
         # Special handling for index.html to inject API key
         if self.path.endswith('index.html'):
-            return self.serve_index_with_api_key()
-            
-        # Serve other static files normally
-        return SimpleHTTPRequestHandler.do_GET(self)
-    
-    def serve_index_with_api_key(self):
-        """Serve index.html with Google API key injected"""
-        try:
-            # Get API key from environment/config
-            api_key = get_api_key()
-            if not api_key:
-                print("Warning: No API key found. Maps functionality will be limited.")
-                # Continue without API key, will use the one in HTML if any
-            
-            # Read the index.html file
-            file_path = os.path.join(os.getcwd(), 'index.html')
-            with open(file_path, 'r') as f:
-                content = f.read()
-            
-            # Replace the API key placeholder with actual API key if found
             if api_key:
-                # Look for the maps.googleapis.com script tag and replace the key
-                import re
-                pattern = r'(https://maps.googleapis.com/maps/api/js\?key=)([^&]+)(&.*)'
-                content = re.sub(pattern, r'\1' + api_key + r'\3', content)
-            
-            # Send the modified content
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html')
-            self.send_header('Content-Length', str(len(content)))
-            self.end_headers()
-            self.wfile.write(content.encode())
-            return
-            
-        except Exception as e:
-            print(f"Error serving index.html: {e}")
-            # Fall back to standard serving method
-            self.path = '/index.html'
-            return SimpleHTTPRequestHandler.do_GET(self)
+                print(f"Using API key: {api_key[:5]}...")
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                
+                # Read the HTML file
+                with open(os.path.join(os.getcwd(), 'index.html'), 'r') as file:
+                    html_content = file.read()
+                
+                # Replace the placeholder with the API key
+                modified_content = html_content.replace('YOUR_API_KEY_PLACEHOLDER', api_key)
+                
+                # Send the modified content
+                self.wfile.write(modified_content.encode('utf-8'))
+                return
+            else:
+                print("Warning: No API key found, Google Maps will not work correctly")
+        
+        # Serve static files for all other requests
+        return SimpleHTTPRequestHandler.do_GET(self)
 
     def do_POST(self):
         """Handle POST requests - API endpoints"""
