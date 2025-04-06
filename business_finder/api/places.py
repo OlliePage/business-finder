@@ -233,7 +233,86 @@ def get_search_logs():
     return log_capture.get_logs()
 
 
-def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=3000, max_workers=5):
+def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, initial_sub_radius=3000, min_sub_radius=500):
+    """
+    Determine the optimal sub-radius for an area by performing a smoke test
+    and recursively halving the radius if the result count is near the API limit
+    
+    Args:
+        api_key: Google Places API key
+        search_term: Keyword to search for
+        latitude: Test latitude for the search
+        longitude: Test longitude for the search
+        initial_sub_radius: Starting sub-radius in meters
+        min_sub_radius: Minimum allowable sub-radius
+        
+    Returns:
+        Optimal sub-radius value for the area
+    """
+    # Google Places API has a limit of about 60 results (20 results per page, 3 pages)
+    API_RESULT_LIMIT = 60
+    # Threshold to determine if we're close to the limit (80% of the limit)
+    THRESHOLD = int(API_RESULT_LIMIT * 0.8)
+    
+    log_capture.add_log(
+        "INFO", 
+        f"Running smoke test to determine optimal sub-radius for [{latitude}, {longitude}]",
+        {
+            "initial_sub_radius": initial_sub_radius,
+            "min_sub_radius": min_sub_radius,
+            "api_limit": API_RESULT_LIMIT,
+            "threshold": THRESHOLD
+        }
+    )
+    
+    current_sub_radius = initial_sub_radius
+    
+    # Try with initial sub-radius
+    test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius)
+    result_count = len(test_results)
+    
+    log_capture.add_log(
+        "INFO", 
+        f"Smoke test with {current_sub_radius}m sub-radius found {result_count} results",
+        {"sub_radius": current_sub_radius, "result_count": result_count}
+    )
+    
+    # If the current sub-radius returns close to the limit, reduce sub-radius and try again
+    # Continue reducing until we're below the threshold or hit the minimum allowed sub-radius
+    while result_count >= THRESHOLD and current_sub_radius > min_sub_radius:
+        # Halve the sub-radius
+        current_sub_radius = int(current_sub_radius / 2)
+        
+        # Ensure we don't go below the minimum
+        if current_sub_radius < min_sub_radius:
+            current_sub_radius = min_sub_radius
+            break
+            
+        log_capture.add_log(
+            "INFO", 
+            f"Results near API limit ({result_count}/{API_RESULT_LIMIT}). Halving sub-radius to {current_sub_radius}m",
+            {"new_sub_radius": current_sub_radius}
+        )
+        
+        # Try with reduced sub-radius
+        test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius)
+        result_count = len(test_results)
+        
+        log_capture.add_log(
+            "INFO", 
+            f"Smoke test with {current_sub_radius}m sub-radius found {result_count} results",
+            {"sub_radius": current_sub_radius, "result_count": result_count}
+        )
+    
+    log_capture.add_log(
+        "INFO", 
+        f"Determined optimal sub-radius of {current_sub_radius}m for this location",
+        {"optimal_sub_radius": current_sub_radius, "final_result_count": result_count}
+    )
+    
+    return current_sub_radius
+
+def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=3000, max_workers=5, adapt_sub_radius=True):
     """
     Search for places matching criteria using a grid-based approach for large radii
     
@@ -245,6 +324,7 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         radius: Search radius in meters
         sub_radius: Sub-radius to use for each grid point search (default: 3000m)
         max_workers: Maximum number of concurrent searches (default: 5)
+        adapt_sub_radius: Whether to dynamically adjust sub-radius based on location density (default: True)
         
     Returns:
         List of businesses found in the search area, deduplicated
@@ -259,7 +339,8 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         "longitude": longitude,
         "radius": radius,
         "sub_radius": sub_radius,
-        "max_workers": max_workers
+        "max_workers": max_workers,
+        "adapt_sub_radius": adapt_sub_radius
     }
     
     log_capture.add_log(
@@ -289,18 +370,34 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         
         return results
     
+    # If adaptive sub-radius is enabled, run a smoke test to determine optimal sub-radius
+    effective_sub_radius = sub_radius
+    if adapt_sub_radius:
+        print("Running adaptive sub-radius determination...")
+        # Determine optimal sub-radius for this location
+        effective_sub_radius = determine_optimal_sub_radius(
+            api_key, search_term, latitude, longitude, 
+            initial_sub_radius=sub_radius
+        )
+        
+        log_capture.add_log(
+            "INFO", 
+            f"Using dynamically determined sub-radius of {effective_sub_radius}m",
+            {"original_sub_radius": sub_radius, "adapted_sub_radius": effective_sub_radius}
+        )
+    
     # For large radii, generate a grid of points and search each one
-    grid_points = generate_grid_points(latitude, longitude, radius, sub_radius)
+    grid_points = generate_grid_points(latitude, longitude, radius, effective_sub_radius)
     point_count = len(grid_points)
     
-    log_msg = f"Breaking search into {point_count} sub-searches with {sub_radius}m radius each"
+    log_msg = f"Breaking search into {point_count} sub-searches with {effective_sub_radius}m radius each"
     print(log_msg)
     log_capture.add_log(
         "INFO", 
         log_msg,
         {
             "grid_points": point_count,
-            "sub_radius": sub_radius,
+            "sub_radius": effective_sub_radius,
             "main_radius": radius
         }
     )
@@ -314,7 +411,7 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
     )
     
     # Limit the sub-radius to the maximum allowed by the API (50000m)
-    effective_sub_radius = min(sub_radius, 50000)
+    effective_sub_radius = min(effective_sub_radius, 50000)
     
     all_businesses = []
     seen_place_ids = set()
@@ -351,6 +448,14 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
             try:
                 sub_results = future.result()
                 unique_count_before = len(seen_place_ids)
+                
+                # Check if we're hitting the API limit for this sub-search
+                if len(sub_results) >= 60:  # Near API limit
+                    log_capture.add_log(
+                        "WARNING", 
+                        f"Point {point} returned {len(sub_results)} results, which is at or near the API limit",
+                        {"point": {"lat": point[0], "lng": point[1]}, "result_count": len(sub_results)}
+                    )
                 
                 # Deduplicate based on place_id
                 new_results = []
@@ -403,7 +508,8 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         {
             "total_businesses": len(all_businesses),
             "duration": duration,
-            "search_params": search_params
+            "search_params": search_params,
+            "adapted_sub_radius": effective_sub_radius
         }
     )
     

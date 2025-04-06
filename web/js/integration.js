@@ -52,7 +52,9 @@ function sendParametersToBackend() {
     const requestData = {
         ...params,
         api_key: apiKey,
-        output_format: document.getElementById('output-format').value || 'csv'
+        use_cache: document.getElementById('use-cache').checked,
+        adapt_sub_radius: document.getElementById('adapt-sub-radius').checked,
+        output_format: 'csv' // Default to CSV - Google Sheets is handled separately
     };
 
     // Send data to backend
@@ -70,7 +72,7 @@ function sendParametersToBackend() {
         return response.blob();
     })
     .then(blob => {
-        // Create download link for the file
+        // For CSV/JSON, create download link for the file
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `business-results.${requestData.output_format}`;

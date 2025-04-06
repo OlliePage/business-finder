@@ -22,7 +22,7 @@ Business Finder is a tool that combines a visual map interface with the power of
 - **Advanced Filtering**: Filter results by rating, review count, type, price level, business status and more
 - **Sortable Results**: Sort business listings by name, type, rating, price level, etc.
 - **Comprehensive Data Export**: Get business names, addresses, phone numbers, websites, ratings, types, and more
-- **Multiple Export Formats**: Save results as CSV or JSON
+- **Multiple Export Formats**: Save results as CSV, JSON, or Google Sheets
 - **Command-Line Interface**: Run searches programmatically or from scripts
 - **Web Server Mode**: Run as a local server for a complete web application experience
 
@@ -180,6 +180,8 @@ Options:
 - `--radius METERS` - Search radius in meters (large radii will be split into sub-searches)
 - `--sub-radius METERS` - Sub-search radius for grid-based searches (default: from config)
 - `--max-workers N` - Maximum number of parallel searches for grid-based searches (default: from config)
+- `--adaptive-radius` - Dynamically adjust sub-radius based on result density (enabled by default)
+- `--no-adaptive-radius` - Disable dynamic sub-radius adjustment
 - `--verbose` - Enable verbose output with detailed search logs
 - `--output FILE` - Output filename
 - `--format FORMAT` - Output format (csv or json)
@@ -346,6 +348,25 @@ business-finder search --search-term "restaurant" --latitude 40.7128 --longitude
 - Using smaller sub-radii will result in more comprehensive results but will make more API calls
 - Increasing max-workers speeds up searches but uses more concurrent connections
 - API usage costs and rate limits should be considered when adjusting these parameters
+
+### Adaptive Sub-Radius
+
+Business Finder includes a smart density detection system that automatically adjusts the search grid density based on location popularity:
+
+1. Before starting the full grid search, a "smoke test" is performed at the center point
+2. If the initial search returns close to the API limit of results (60 results), the sub-radius is automatically halved
+3. This process continues recursively until either:
+   - Results are below the threshold (meaning we're using an appropriate sub-radius), or
+   - The minimum sub-radius is reached (to prevent excessive API calls)
+
+This adaptive approach ensures:
+- In dense urban areas like NYC, the search automatically uses a tighter grid for more comprehensive coverage
+- In sparse rural areas, the default larger sub-radius is maintained for efficiency
+- Every business gets a fair and equitable chance at being shown to the user
+
+You can control this feature with:
+- Web UI: "Adapt search density automatically" checkbox in Advanced Options
+- CLI: `--adaptive-radius` flag (enabled by default) or `--no-adaptive-radius` to disable it
 
 ### Search Logs and Debugging
 
@@ -594,6 +615,43 @@ python web/server.py
 ```
 
 Option 2: Open the `web/index.html` file directly in a browser.
+
+## Google Sheets Integration
+
+Business Finder includes functionality to export search results directly to Google Sheets:
+
+1. **Direct Export**: Export results to a new or existing Google Sheet
+2. **Formatted Output**: Data is formatted with proper headers, hyperlinks, and column sizing
+3. **OAuth Authentication**: Secure authentication with Google's API
+
+### Setup Google Sheets Integration
+
+To use the Google Sheets export functionality, you need OAuth credentials:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the "Google Sheets API" and "Google Drive API"
+4. Create OAuth 2.0 credentials (OAuth client ID, type: Desktop application)
+5. Download the credentials JSON file
+6. Place the file in the `credentials` directory as `client_secret.json`:
+   ```
+   mkdir -p credentials
+   cp ~/Downloads/client_secret_XXXX.json credentials/client_secret.json
+   ```
+
+When you first use the Google Sheets export, it will open a browser window for authentication. The authentication token will be stored in the same directory as your credentials.
+
+### Using Google Sheets Export
+
+From the command line:
+```bash
+# Export search results to Google Sheets
+business-finder search --latitude 51.485097 --longitude -2.601889 --search-term "coffee" --format sheets
+```
+
+From the web interface:
+1. Perform a search
+2. Click the "Export to Google Sheets" button in the results section
 
 With the web interface, you can:
 1. Search for businesses visually using the map

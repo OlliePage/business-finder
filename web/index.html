@@ -918,10 +918,19 @@
                     </div>
 
                     <div class="control-group">
-                        <label for="use-cache">Cache:</label>
-                        <div>
-                            <input type="checkbox" id="use-cache" checked>
-                            <label for="use-cache">Use cached results when available</label>
+                        <label>Advanced Options:</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <input type="checkbox" id="use-cache" checked>
+                                <label for="use-cache">Use cached results when available</label>
+                            </div>
+                            <div>
+                                <input type="checkbox" id="adapt-sub-radius" checked>
+                                <label for="adapt-sub-radius">Adapt search density automatically</label>
+                                <div style="margin-left: 22px; font-size: 12px; color: #666;">
+                                    When enabled, the system will dynamically adjust the search grid density in busy areas
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1055,6 +1064,7 @@
         <div class="action-buttons">
             <button id="download-csv" class="secondary-button">Download as CSV</button>
             <button id="download-selected-csv" class="secondary-button">Download Visible Results</button>
+            <button id="export-google-sheets" class="secondary-button">Export to Google Sheets</button>
         </div>
         
         <table id="results-table">
@@ -1316,6 +1326,128 @@
             document.getElementById("download-selected-csv").addEventListener("click", function() {
                 const visibleResults = getVisibleResults();
                 downloadAsCSV(visibleResults);
+            });
+            
+            // Add Google Sheets export button listener
+            document.getElementById("export-google-sheets").addEventListener("click", function() {
+                console.log("*** Export to Google Sheets button clicked ***");
+                
+                // Store current results before exporting to Google Sheets
+                if (!allSearchResults || allSearchResults.length === 0) {
+                    console.error("No search results available");
+                    alert("Please perform a search first before exporting to Google Sheets");
+                    return;
+                }
+                
+                console.log(`Found ${allSearchResults.length} results to export`);
+                
+                // Show loading indicator
+                const exportButton = document.getElementById('export-google-sheets');
+                const originalText = exportButton.textContent;
+                exportButton.textContent = 'Exporting...';
+                exportButton.disabled = true;
+                
+                try {
+                    // Create a new parameters object for the request
+                    const params = getParameters();
+                    console.log("Base parameters:", JSON.stringify(params));
+                    
+                    // Get API key - it might not be in the DOM if it was injected by the server
+                    let apiKey = '';
+                    const apiKeyElement = document.getElementById('api-key');
+                    if (apiKeyElement) {
+                        apiKey = apiKeyElement.value;
+                        console.log("Found API key element, value length:", apiKey.length);
+                    } else {
+                        console.log("API key element not found in DOM");
+                    }
+                    
+                    // Force display error message to help with debugging
+                    showError("Debug: Starting Google Sheets export process...");
+                    
+                    // Set the export format to Google Sheets
+                    const requestData = {
+                        ...params,
+                        api_key: apiKey,
+                        use_cache: true,
+                        adapt_sub_radius: true,
+                        output_format: 'sheets'
+                    };
+                    
+                    console.log("Full request data:", JSON.stringify(requestData));
+                    
+                    // Show a message to the user
+                    showMessage("Exporting to Google Sheets... You may need to authenticate with Google.");
+                    
+                    // Send the request to export to Google Sheets
+                    console.log("Sending fetch request to /api/search...");
+                    fetch('/api/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    })
+                    .then(response => {
+                        console.log("Google Sheets response received:", response.status, response.statusText);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        showError("Debug: Response received, parsing JSON...");
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Google Sheets response data:", JSON.stringify(data));
+                        showError("Debug: JSON parsed successfully");
+                        
+                        if (data && data.url) {
+                            // Show appropriate message based on if it's a demo or real export
+                            if (data.demo_mode) {
+                                if (data.error) {
+                                    // Show user-friendly error message
+                                    showError(data.error);
+                                    console.warn("Original error:", data.error);
+                                    
+                                    // Show fix instructions if available
+                                    if (data.fix_instructions) {
+                                        console.log("Fix instructions:", data.fix_instructions);
+                                        setTimeout(() => {
+                                            alert(data.fix_instructions);
+                                        }, 1000);
+                                    }
+                                } else {
+                                    showMessage("Demo mode: Opening mock Google Sheet for demonstration");
+                                }
+                                console.log("Note: This is a demo URL. In production, you would need Google API credentials.");
+                            } else {
+                                showMessage("Export successful! Opening Google Sheet...");
+                            }
+                            
+                            // Open the Google Sheets URL in a new tab
+                            console.log("Opening URL in new tab:", data.url);
+                            showError("Debug: Opening URL: " + data.url);
+                            window.open(data.url, '_blank');
+                        } else {
+                            showError("Debug: No URL in response data");
+                            throw new Error('No Google Sheets URL returned');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error exporting to Google Sheets:', error);
+                        showError(`Error exporting to Google Sheets: ${error.message}`);
+                    })
+                    .finally(() => {
+                        // Reset button state
+                        console.log("Export process completed (success or failure)");
+                        exportButton.textContent = originalText;
+                        exportButton.disabled = false;
+                    });
+                } catch (error) {
+                    console.error('Exception in Google Sheets export:', error);
+                    showError(`Error: ${error.message}`);
+                    exportButton.textContent = originalText;
+                    exportButton.disabled = false;
+                }
             });
 
             // Add results limit change listener
@@ -2059,8 +2191,9 @@ Please refresh the page and try your search again.
         function searchBusinesses() {
             const params = getParameters();
             
-            // Add cache preference parameter
+            // Add cache and adaptive radius preferences
             params.use_cache = document.getElementById("use-cache").checked;
+            params.adapt_sub_radius = document.getElementById("adapt-sub-radius").checked;
             
             // Reset cached indicator
             lastSearchWasCached = false;
@@ -2682,6 +2815,25 @@ Please refresh the page and try your search again.
                 return;
             }
             
+            // Get search term for the filename
+            const searchTerm = document.getElementById("search-term").value || "business";
+            
+            // Create snake_case version of search term for filename
+            let snakeCaseTerm = searchTerm.toLowerCase().replace(/\s+/g, '_');
+            // Remove any characters that aren't alphanumeric or underscore
+            snakeCaseTerm = snakeCaseTerm.replace(/[^a-z0-9_]/g, '_');
+            // Remove consecutive underscores
+            while (snakeCaseTerm.includes('__')) {
+                snakeCaseTerm = snakeCaseTerm.replace('__', '_');
+            }
+            // Remove leading/trailing underscores
+            snakeCaseTerm = snakeCaseTerm.replace(/^_+|_+$/g, '');
+            
+            // If empty after processing, use a default
+            if (!snakeCaseTerm) {
+                snakeCaseTerm = "business";
+            }
+            
             // Define the headers and corresponding properties
             const headers = [
                 { label: "Name", key: "name" },
@@ -2739,9 +2891,26 @@ Please refresh the page and try your search again.
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            const fileName = resultsToDownload.length === allSearchResults.length 
-                ? "data/all-business-results.csv" 
-                : `data/business-results-${resultsToDownload.length}.csv`;
+            // Create a descriptive filename
+            let fileName;
+            if (resultsToDownload.length === allSearchResults.length) {
+                fileName = `data/${snakeCaseTerm}_results.csv`;
+            } else {
+                fileName = `data/${snakeCaseTerm}_results_${resultsToDownload.length}_of_${allSearchResults.length}.csv`;
+            }
+            
+            // Include location information if available
+            if (currentLat && currentLng) {
+                // Round coordinates to 2 decimal places
+                const latShort = currentLat.toFixed(2);
+                const lngShort = currentLng.toFixed(2);
+                
+                if (resultsToDownload.length === allSearchResults.length) {
+                    fileName = `data/${snakeCaseTerm}_at_${latShort}_${lngShort}.csv`;
+                } else {
+                    fileName = `data/${snakeCaseTerm}_at_${latShort}_${lngShort}_${resultsToDownload.length}_of_${allSearchResults.length}.csv`;
+                }
+            }
             link.setAttribute("download", fileName);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);

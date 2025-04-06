@@ -14,6 +14,7 @@ from business_finder.config import (
 )
 from business_finder.exporters.csv_exporter import write_to_csv
 from business_finder.exporters.json_exporter import write_to_json
+from business_finder.exporters.sheets_exporter import export_to_sheets
 
 
 def main():
@@ -53,13 +54,31 @@ Configure these settings with 'business-finder config --set-sub-radius VALUE'
         "--max-workers", type=int, help=f"Maximum number of parallel searches for large area searches (default: configured value, currently {DEFAULT_MAX_WORKERS})"
     )
     search_parser.add_argument(
+        "--adaptive-radius", action="store_true", default=True, 
+        help="Dynamically adjust sub-radius based on result density (enabled by default)"
+    )
+    search_parser.add_argument(
+        "--no-adaptive-radius", action="store_false", dest="adaptive_radius",
+        help="Disable dynamic sub-radius adjustment"
+    )
+    search_parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose output with detailed search logs"
     )
     search_parser.add_argument(
-        "--output", default="business_results.csv", help="Output filename"
+        "--output", help="Output filename (default: generated from search term, e.g., 'coffee_shop_results.csv')"
     )
     search_parser.add_argument(
-        "--format", choices=["csv", "json"], default="csv", help="Output format"
+        "--format", choices=["csv", "json", "sheets"], default="csv", 
+        help="Output format (csv, json, or Google Sheets)"
+    )
+    search_parser.add_argument(
+        "--sheets-credentials", help="Path to Google OAuth credentials file"
+    )
+    search_parser.add_argument(
+        "--sheets-token", help="Path to Google OAuth token file"
+    )
+    search_parser.add_argument(
+        "--sheets-name", help="Name for Google Sheets spreadsheet"
     )
     search_parser.add_argument("--json-params", help="JSON string with all parameters")
     search_parser.add_argument("--params-file", help="JSON file with all parameters")
@@ -236,7 +255,9 @@ Configure these settings with 'business-finder config --set-sub-radius VALUE'
     )
     
     if radius > sub_radius:
+        adaptive_status = "enabled" if args.adaptive_radius else "disabled"
         print(f"Using grid search with sub-radius {sub_radius}m and {max_workers} parallel workers")
+        print(f"Adaptive sub-radius {adaptive_status}: Will dynamically adjust sub-radius based on result density")
         
     # Set verbose flag for detailed logging
     verbose = args.verbose
@@ -248,7 +269,8 @@ Configure these settings with 'business-finder config --set-sub-radius VALUE'
         longitude, 
         radius, 
         sub_radius=sub_radius, 
-        max_workers=max_workers
+        max_workers=max_workers,
+        adapt_sub_radius=args.adaptive_radius
     )
     
     # Display detailed logs if verbose mode is enabled
@@ -277,12 +299,68 @@ Configure these settings with 'business-finder config --set-sub-radius VALUE'
 
     print(f"Found {len(businesses)} businesses matching criteria.")
 
+    # Generate filename if not specified
+    output_file = args.output
+    if not output_file:
+        # Convert search term to snake_case for the filename
+        # Replace spaces and special chars with underscores, lowercase everything
+        snake_case_term = search_term.lower().replace(' ', '_')
+        # Remove any characters that aren't alphanumeric or underscore
+        snake_case_term = ''.join(c if c.isalnum() or c == '_' else '_' for c in snake_case_term)
+        # Remove consecutive underscores
+        while '__' in snake_case_term:
+            snake_case_term = snake_case_term.replace('__', '_')
+        # Remove leading/trailing underscores
+        snake_case_term = snake_case_term.strip('_')
+        
+        # Default to a simple name if the search term is empty or results in an empty string
+        if not snake_case_term:
+            snake_case_term = "business"
+            
+        # Create the filename with the search term
+        extension = "json" if args.format == "json" else "csv"
+        output_file = f"{snake_case_term}_results.{extension}"
+        
+        # Add location info for more context if we have coordinates
+        if latitude and longitude:
+            # Round coordinates to 2 decimal places for conciseness
+            lat_short = round(latitude, 2)
+            lng_short = round(longitude, 2)
+            # Create a more descriptive filename
+            output_file = f"{snake_case_term}_at_{lat_short}_{lng_short}.{extension}"
+    
     # Export results
     if businesses:
-        if args.format == "csv":
-            write_to_csv(businesses, args.output)
+        if args.format == "sheets":
+            print("Exporting results to Google Sheets...")
+            spreadsheet_name = args.sheets_name or f"Business Finder - {search_term}"
+            
+            # Default to project credentials directory if not specified
+            credentials_path = args.sheets_credentials
+            if not credentials_path:
+                # Get the project root directory
+                package_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(package_dir)
+                credentials_path = os.path.join(project_root, 'credentials', 'client_secret.json')
+            
+            # Default token path based on credentials path
+            token_path = args.sheets_token
+            if not token_path:
+                token_path = os.path.join(os.path.dirname(credentials_path), 'token.json')
+                
+            sheet_url = export_to_sheets(
+                businesses, 
+                spreadsheet_name=spreadsheet_name,
+                credentials_path=credentials_path, 
+                token_path=token_path
+            )
+            print(f"Results exported to Google Sheets: {sheet_url}")
         else:
-            write_to_json(businesses, args.output)
+            print(f"Saving results to: {output_file}")
+            if args.format == "csv":
+                write_to_csv(businesses, output_file)
+            else:
+                write_to_json(businesses, output_file)
 
 
 if __name__ == "__main__":

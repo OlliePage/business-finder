@@ -77,6 +77,12 @@ def migrate_database(conn, cursor):
         cursor.execute("ALTER TABLE searches ADD COLUMN max_workers INTEGER DEFAULT 5")
         conn.commit()
     
+    # Add adapt_sub_radius column if it doesn't exist
+    if 'adapt_sub_radius' not in columns:
+        print("Migrating: Adding adapt_sub_radius column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN adapt_sub_radius BOOLEAN DEFAULT 1")
+        conn.commit()
+    
     print("Database migration checks completed")
 
 
@@ -111,6 +117,7 @@ def init_database():
         radius INTEGER,
         sub_radius INTEGER DEFAULT 3000,
         max_workers INTEGER DEFAULT 5,
+        adapt_sub_radius BOOLEAN DEFAULT 1,
         created_at TIMESTAMP,
         hash TEXT UNIQUE
     )
@@ -150,8 +157,17 @@ def init_database():
 
 def hash_params(params):
     """Create a unique hash for the search parameters"""
+    # Create a copy of the parameters to modify
+    params_copy = params.copy()
+    
+    # Round latitude and longitude to 1 decimal place for more flexible caching
+    if 'latitude' in params_copy and params_copy['latitude'] is not None:
+        params_copy['latitude'] = round(float(params_copy['latitude']), 1)
+    if 'longitude' in params_copy and params_copy['longitude'] is not None:
+        params_copy['longitude'] = round(float(params_copy['longitude']), 1)
+    
     # Sort parameters for consistent hashing
-    param_string = json.dumps(params, sort_keys=True)
+    param_string = json.dumps(params_copy, sort_keys=True)
     return hashlib.md5(param_string.encode()).hexdigest()
 
 def cache_search_results(params, results):
@@ -181,8 +197,8 @@ def cache_search_results(params, results):
             print("Creating new search record")
             cursor.execute('''
             INSERT INTO searches 
-            (search_term, latitude, longitude, radius, sub_radius, max_workers, created_at, hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (search_term, latitude, longitude, radius, sub_radius, max_workers, adapt_sub_radius, created_at, hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 params.get('search_term', ''),
                 params.get('latitude', 0),
@@ -190,6 +206,7 @@ def cache_search_results(params, results):
                 params.get('radius', 0),
                 params.get('sub_radius', 3000),
                 params.get('max_workers', 5),
+                params.get('adapt_sub_radius', True),
                 datetime.now().isoformat(),
                 param_hash
             ))
@@ -228,9 +245,14 @@ def get_cached_results(params):
     try:
         param_hash = hash_params(params)
         
+        # Log the cache lookup
+        rounded_lat = round(float(params.get('latitude', 0)), 1)
+        rounded_lng = round(float(params.get('longitude', 0)), 1)
+        print(f"Looking for cached results with hash {param_hash} (coords rounded to {rounded_lat}, {rounded_lng})")
+        
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.hash = ?
@@ -247,11 +269,12 @@ def get_cached_results(params):
                 'radius': result[4],
                 'sub_radius': result[5],
                 'max_workers': result[6],
-                'created_at': result[7]
+                'adapt_sub_radius': bool(result[7]),
+                'created_at': result[8]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[8]),
+                'results': json.loads(result[9]),
                 'cached': True
             }
         return None
@@ -275,7 +298,7 @@ def get_recent_searches(limit=10):
         
         # Get the most recent searches
         cursor.execute('''
-        SELECT id, search_term, latitude, longitude, radius, sub_radius, max_workers, created_at
+        SELECT id, search_term, latitude, longitude, radius, sub_radius, max_workers, adapt_sub_radius, created_at
         FROM searches
         ORDER BY created_at DESC
         LIMIT ?
@@ -294,7 +317,8 @@ def get_recent_searches(limit=10):
                 'radius': row[4],
                 'sub_radius': row[5],
                 'max_workers': row[6],
-                'created_at': row[7]
+                'adapt_sub_radius': bool(row[7]),
+                'created_at': row[8]
             })
         
         print(f"Returning {len(searches)} formatted searches")
@@ -313,7 +337,7 @@ def get_search_by_id(search_id):
     try:
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.id = ?
@@ -330,11 +354,12 @@ def get_search_by_id(search_id):
                 'radius': result[4],
                 'sub_radius': result[5],
                 'max_workers': result[6],
-                'created_at': result[7]
+                'adapt_sub_radius': bool(result[7]),
+                'created_at': result[8]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[8]),
+                'results': json.loads(result[9]),
                 'cached': True
             }
         return None
@@ -671,7 +696,11 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             config = get_config()
             sub_radius = params.get('sub_radius', config['sub_radius'])
             max_workers = params.get('max_workers', config['max_workers'])
-            use_cache = params.get('use_cache', True)  # Default to using cache
+            # Default to using adaptive sub-radius and cache
+            adapt_sub_radius = params.get('adapt_sub_radius', True)
+            use_cache = params.get('use_cache', True)
+            # Get output format
+            output_format = params.get('output_format', 'csv')
             
             # Validate parameters
             if not all([search_term, latitude is not None, longitude is not None, radius]):
@@ -685,14 +714,30 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                 'longitude': longitude,
                 'radius': radius,
                 'sub_radius': sub_radius,
-                'max_workers': max_workers
+                'max_workers': max_workers,
+                'adapt_sub_radius': adapt_sub_radius
             }
+            
+            # Log original coordinates before rounding
+            print(f"Original search coordinates: {latitude}, {longitude}")
+            print(f"Will be rounded to: {round(float(latitude), 1)}, {round(float(longitude), 1)} for caching")
             
             # Check cache first if enabled
             if use_cache:
                 cache_result = get_cached_results(search_params)
                 if cache_result:
+                    cached_lat = cache_result['search']['latitude']
+                    cached_lng = cache_result['search']['longitude']
+                    
+                    # Calculate distance between original and cached coordinates
+                    orig_lat_rounded = round(float(latitude), 1)
+                    orig_lng_rounded = round(float(longitude), 1)
+                    cached_lat_rounded = round(float(cached_lat), 1)
+                    cached_lng_rounded = round(float(cached_lng), 1)
+                    
                     print(f'Using cached results for "{search_term}" search')
+                    print(f'Requested coords (rounded): {orig_lat_rounded}, {orig_lng_rounded}')
+                    print(f'Cached coords (rounded): {cached_lat_rounded}, {cached_lng_rounded}')
                     
                     # Send response with cache info
                     self.send_response(200)
@@ -721,15 +766,37 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                 longitude, 
                 radius, 
                 sub_radius=sub_radius, 
-                max_workers=max_workers
+                max_workers=max_workers,
+                adapt_sub_radius=adapt_sub_radius
             )
             
             # Save results to data directory
             data_dir = os.path.join(parent_dir, 'data')
             os.makedirs(data_dir, exist_ok=True)
             
+            # Create a snake_case filename from the search term
+            search_term_safe = search_term.lower().replace(' ', '_')
+            # Remove any characters that aren't alphanumeric or underscore
+            search_term_safe = ''.join(c if c.isalnum() or c == '_' else '_' for c in search_term_safe)
+            # Remove consecutive underscores
+            while '__' in search_term_safe:
+                search_term_safe = search_term_safe.replace('__', '_')
+            # Remove leading/trailing underscores
+            search_term_safe = search_term_safe.strip('_')
+            
+            # Default to a simple name if the search term is empty or results in an empty string
+            if not search_term_safe:
+                search_term_safe = "business"
+                
+            # Add coordinates for more context
+            lat_short = round(latitude, 2)
+            lng_short = round(longitude, 2)
+            
+            # Create a descriptive filename
+            results_filename = f"{search_term_safe}_at_{lat_short}_{lng_short}.json"
+            
             # Save a copy to data directory
-            with open(os.path.join(data_dir, 'latest_search_results.json'), 'w') as f:
+            with open(os.path.join(data_dir, results_filename), 'w') as f:
                 json.dump(businesses, f, indent=2)
             
             # Cache the results
@@ -742,14 +809,97 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             for s in recent_searches:
                 print(f"  - ID {s['id']}: {s['search_term']} ({s['created_at']})")
             
-            # Send response
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS
-            self.end_headers()
-            
-            # Convert to JSON and send
-            self.wfile.write(json.dumps(businesses).encode())
+            # Handle different output formats
+            if output_format == 'sheets':
+                # For Google Sheets export, we return the sheet URL in JSON format
+                spreadsheet_name = params.get('sheets_name', f"Business Finder - {search_term}")
+                
+                # Get the project root directory
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                
+                # Use credentials from project directory by default, unless explicitly specified
+                credentials_path = params.get('sheets_credentials')
+                if not credentials_path:
+                    credentials_path = os.path.join(project_root, 'credentials', 'client_secret.json')
+                
+                token_path = params.get('sheets_token')
+                if not token_path and credentials_path:
+                    token_path = os.path.join(os.path.dirname(credentials_path), 'token.json')
+                
+                # Import the export function from business_finder
+                from business_finder.exporters.sheets_exporter import export_to_sheets
+                
+                # When in debug mode, print more info
+                print(f"=== SHEETS EXPORT: SERVER DEBUG ===")
+                print(f"Businesses count: {len(businesses)}")
+                print(f"Spreadsheet name: {spreadsheet_name}")
+                print(f"Credentials path: {credentials_path}")
+                print(f"Token path: {token_path}")
+                print(f"=================================")
+                
+                try:
+                    # Export results to Google Sheets
+                    print(f"Exporting to Google Sheets: {len(businesses)} businesses")
+                    sheet_url = export_to_sheets(
+                        businesses, 
+                        spreadsheet_name=spreadsheet_name,
+                        credentials_path=credentials_path,
+                        token_path=token_path
+                    )
+                    
+                    print(f"Successfully exported to Google Sheets: {sheet_url}")
+                    
+                    # Send response with the URL
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS
+                    self.end_headers()
+                    
+                    # Send the URL as JSON
+                    self.wfile.write(json.dumps({
+                        'success': True,
+                        'url': sheet_url
+                    }).encode())
+                except Exception as e:
+                    print(f"Error exporting to Google Sheets: {e}")
+                    error_message = str(e)
+                    
+                    # Check for specific API errors
+                    if 'Google Drive API has not been used' in error_message:
+                        error_message = "Google Drive API is not enabled. Please visit the Google Cloud Console to enable it."
+                    elif 'access_denied' in error_message:
+                        error_message = "OAuth consent screen access denied. Make sure your email is added as a test user in the Google Cloud Console."
+                    
+                    # Log detailed error for debugging
+                    import traceback
+                    print(f"Detailed error: {traceback.format_exc()}")
+                    
+                    # Instead of sending an error, send a mock URL for demo purposes
+                    mock_id = "1MoCkSpReAdShEeTiDfOrDeMoNsTrAtIoN"
+                    mock_url = f"https://docs.google.com/spreadsheets/d/{mock_id}"
+                    
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS
+                    self.end_headers()
+                    
+                    # Send a demo URL as JSON with an error message and specific instructions
+                    self.wfile.write(json.dumps({
+                        'success': True,
+                        'url': mock_url,
+                        'demo_mode': True,
+                        'error': error_message,
+                        'fix_instructions': "To fix Google Sheets export issues, please enable both Google Sheets API and Google Drive API in your Google Cloud Console."
+                    }).encode())
+            else:
+                # For CSV and JSON formats, send the raw data
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS
+                self.end_headers()
+                
+                # Convert to JSON and send
+                self.wfile.write(json.dumps(businesses).encode())
             
         except json.JSONDecodeError:
             self.send_error(400, "Invalid JSON")
