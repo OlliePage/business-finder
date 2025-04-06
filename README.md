@@ -17,9 +17,11 @@ Business Finder is a tool that combines a visual map interface with the power of
 - **Interactive Map Interface**: Select any location worldwide with a simple click
 - **Visual Radius Selection**: Adjust your search radius by dragging or using a slider
 - **Flexible Search Terms**: Find any type of business (restaurants, hotels, retail, etc.)
-- **Advanced Filtering**: Filter results by rating, review count, and contact information availability
-- **Sortable Results**: Sort business listings by name, address, rating, or review count
-- **Comprehensive Data Export**: Get business names, addresses, phone numbers, websites, ratings, and more
+- **Place Type Search**: Search directly by place type categories (e.g., restaurant, cafe, etc.)
+- **Enhanced Categorization**: Leverage Google's hierarchical categorization with primary and secondary types
+- **Advanced Filtering**: Filter results by rating, review count, type, price level, business status and more
+- **Sortable Results**: Sort business listings by name, type, rating, price level, etc.
+- **Comprehensive Data Export**: Get business names, addresses, phone numbers, websites, ratings, types, and more
 - **Multiple Export Formats**: Save results as CSV or JSON
 - **Command-Line Interface**: Run searches programmatically or from scripts
 - **Web Server Mode**: Run as a local server for a complete web application experience
@@ -130,9 +132,13 @@ The web server automatically injects your API key from your configuration, so yo
 Follow these steps:
 1. Click anywhere on the map to set your search center
 2. Adjust the circle radius by dragging or using the slider
-3. Enter your search term (e.g., "coffee shop")
+3. Enter your search term (e.g., "coffee shop") or place type (e.g., "restaurant", "cafe")
+   - Click the "Place Types" button to see a list of available place types
+   - Select a place type from the dropdown to search by category
 4. Click "Search Businesses" to see results
-5. Filter and sort results as needed
+5. Filter and sort results:
+   - Filter by minimum rating, review count, place type, price level, etc.
+   - Sort by clicking on column headers (name, type, rating, etc.)
 6. Download results as CSV or click "Copy Parameters" to get the command-line version
 
 ### 4. Run the Search
@@ -200,6 +206,9 @@ Options:
 ```bash
 # Search for coffee shops in San Francisco
 business-finder search --search-term "coffee shop" --latitude 37.7749 --longitude -122.4194 --radius 1000
+
+# Search by place type (using Google Places API types)
+business-finder search --search-term "restaurant" --latitude 37.7749 --longitude -122.4194 --radius 1000
 ```
 
 ### Advanced Usage
@@ -207,6 +216,13 @@ business-finder search --search-term "coffee shop" --latitude 37.7749 --longitud
 ```bash
 # Search for restaurants within 2km, export as JSON
 business-finder search --search-term "restaurant" --latitude 40.7128 --longitude -74.0060 --radius 2000 --format json --output nyc_restaurants.json
+
+# Using place types for more precise categorization
+business-finder search --search-term "cafe" --latitude 51.5074 --longitude -0.1278 --radius 1500
+
+# More specific place types
+business-finder search --search-term "pharmacy" --latitude 34.0522 --longitude -118.2437 --radius 2000
+business-finder search --search-term "tourist_attraction" --latitude 48.8566 --longitude 2.3522 --radius 3000
 ```
 
 ### Grid-Based Search Example
@@ -355,11 +371,45 @@ To access search logs:
      business-finder search --search-term "restaurant" --latitude 51.5074 --longitude -0.1278 --radius 10000 --verbose
      ```
 
+## Enhanced Place Categorization
+
+Business Finder now leverages the enhanced categorization features from the Google Places API:
+
+### Place Types
+
+Every business is categorized with:
+- **Primary Type**: The main category (e.g., restaurant, cafe, pharmacy)
+- **Secondary Types**: Additional categories that apply (e.g., food, point_of_interest)
+
+You can:
+1. **Search directly by type**: Enter a place type like `restaurant` or `coffee_shop` in the search field or use the place type dropdown
+2. **Filter by type**: After searching, filter the results by any place type present in the results
+3. **Export type data**: Type information is included in CSV and JSON exports
+
+### Business Status
+
+Business status information shows whether a place is:
+- **OPERATIONAL**: Currently open for business
+- **CLOSED_TEMPORARILY**: Temporarily closed
+- **CLOSED_PERMANENTLY**: Permanently closed
+
+### Price Level
+
+Price level data (when available) ranges from 0 to 4:
+- **0**: Free or inexpensive
+- **1**: £
+- **2**: ££
+- **3**: £££
+- **4**: ££££
+
+These enhanced categorization features make it easier to find exactly what you're looking for without relying solely on business names or keywords.
+
 ## Limitations
 
 - Even with grid-based search, the Google Places API has rate limits that may affect very large searches
 - API usage is subject to Google's pricing and quota limits
 - Very dense areas may still not return all possible results
+- Not all place types are supported by Google in all regions
 
 ## Debugging Tools
 

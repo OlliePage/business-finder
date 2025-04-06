@@ -52,7 +52,7 @@ def get_place_details(place_id, api_key):
         url = "https://maps.googleapis.com/maps/api/place/details/json"
         params = {
             "place_id": place_id,
-            "fields": "name,rating,website,formatted_address,formatted_phone_number,opening_hours,user_ratings_total",
+            "fields": "name,rating,website,formatted_address,formatted_phone_number,opening_hours,user_ratings_total,types,business_status,price_level",
             "key": api_key,
         }
 
@@ -141,10 +141,18 @@ def search_places_single(api_key, search_term, latitude, longitude, radius):
             params = {
                 "location": f"{latitude},{longitude}",
                 "radius": radius,
-                "keyword": search_term,
-                "type": "business",
                 "key": api_key,
             }
+            
+            # Check if search_term is a place type (contains no spaces and uses underscores)
+            # If it looks like a place type, use it as a type parameter instead of keyword
+            if search_term and "_" in search_term and " " not in search_term:
+                params["type"] = search_term
+                print(f"Searching for places with type: {search_term}")
+                log_capture.add_log("INFO", f"Searching by place type: {search_term}")
+            else:
+                # Otherwise, use it as a keyword search
+                params["keyword"] = search_term
 
             # Add page token if we have one
             if page_token:
@@ -174,6 +182,15 @@ def search_places_single(api_key, search_term, latitude, longitude, radius):
                             "Yes" if details["opening_hours"]["open_now"] else "No"
                         )
 
+                    # Get primary and secondary types
+                    place_types = details.get("types", [])
+                    primary_type = place_types[0] if place_types else "N/A"
+                    secondary_types = place_types[1:] if len(place_types) > 1 else []
+                    
+                    # Get business status and price level
+                    business_status = details.get("business_status", "N/A")
+                    price_level = details.get("price_level", "N/A")
+                    
                     businesses.append(
                         {
                             "name": details.get("name", place.get("name", "N/A")),
@@ -184,6 +201,10 @@ def search_places_single(api_key, search_term, latitude, longitude, radius):
                             "total_ratings": details.get("user_ratings_total", "N/A"),
                             "is_open_now": is_open_now,
                             "place_id": place.get("place_id", "N/A"),
+                            "primary_type": primary_type,
+                            "secondary_types": secondary_types,
+                            "business_status": business_status,
+                            "price_level": price_level
                         }
                     )
 

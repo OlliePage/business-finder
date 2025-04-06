@@ -515,6 +515,16 @@
             text-decoration: underline;
         }
         
+        /* Style for place type */
+        .place-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background-color: #e0e0ff;
+            color: #333;
+            font-size: 12px;
+        }
+        
         /* History panel styles */
         #app-container {
             display: flex;
@@ -864,8 +874,38 @@
                     </div>
 
                     <div class="control-group">
-                        <label for="search-term">Search Term:</label>
-                        <input type="text" id="search-term" placeholder="e.g., coffee shop, restaurant">
+                        <label for="search-term">Search Term or Place Type:</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="search-term" placeholder="e.g., coffee shop, restaurant">
+                            <button id="show-place-types-btn" type="button" class="secondary-button" style="flex-shrink: 0; padding: 6px 10px; margin-top: 0;">Place Types</button>
+                        </div>
+                        <div class="place-types-help" style="display: none; margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #ddd;">
+                            <p style="margin-top: 0;">Select a place type to search by category:</p>
+                            <select id="place-type-dropdown" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                                <option value="">-- Select a place type --</option>
+                                <option value="restaurant">restaurant</option>
+                                <option value="cafe">cafe</option>
+                                <option value="bar">bar</option>
+                                <option value="lodging">lodging (hotels)</option>
+                                <option value="grocery_or_supermarket">grocery or supermarket</option>
+                                <option value="bakery">bakery</option>
+                                <option value="coffee_shop">coffee shop</option>
+                                <option value="clothing_store">clothing store</option>
+                                <option value="shopping_mall">shopping mall</option>
+                                <option value="gas_station">gas station</option>
+                                <option value="bank">bank</option>
+                                <option value="pharmacy">pharmacy</option>
+                                <option value="gym">gym</option>
+                                <option value="park">park</option>
+                                <option value="hair_care">hair salon/barber</option>
+                                <option value="school">school</option>
+                                <option value="hospital">hospital</option>
+                                <option value="dentist">dentist</option>
+                                <option value="movie_theater">movie theater</option>
+                                <option value="tourist_attraction">tourist attraction</option>
+                            </select>
+                            <p><small>Note: When using a place type, the search will return all places of that type regardless of their name.</small></p>
+                        </div>
                     </div>
 
                     <div class="control-group">
@@ -966,12 +1006,42 @@
                 </div>
                 
                 <div class="filter-item">
+                    <label for="place-type-filter">Place Type:</label>
+                    <select id="place-type-filter">
+                        <option value="any" selected>Any</option>
+                        <!-- Will be populated dynamically -->
+                    </select>
+                </div>
+                
+                <div class="filter-item">
+                    <label for="price-level-filter">Price Level:</label>
+                    <select id="price-level-filter">
+                        <option value="any" selected>Any</option>
+                        <option value="0">Free/Inexpensive</option>
+                        <option value="1">£</option>
+                        <option value="2">££</option>
+                        <option value="3">£££</option>
+                        <option value="4">££££</option>
+                    </select>
+                </div>
+                
+                <div class="filter-item">
                     <label for="contact-filter">Has Contact Info:</label>
                     <select id="contact-filter">
                         <option value="any" selected>Any</option>
                         <option value="phone">Has phone</option>
                         <option value="website">Has website</option>
                         <option value="both">Has both</option>
+                    </select>
+                </div>
+                
+                <div class="filter-item">
+                    <label for="business-status-filter">Business Status:</label>
+                    <select id="business-status-filter">
+                        <option value="any" selected>Any</option>
+                        <option value="OPERATIONAL">Operational</option>
+                        <option value="CLOSED_TEMPORARILY">Temporarily Closed</option>
+                        <option value="CLOSED_PERMANENTLY">Permanently Closed</option>
                     </select>
                 </div>
             </div>
@@ -992,9 +1062,11 @@
                 <tr>
                     <th class="sortable" data-sort="name">Name (Maps Link) <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="address">Address <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="primary_type">Type <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="phone">Phone <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="rating">Rating <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="total_ratings">Reviews <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="price_level">Price <span class="sort-arrow">↕</span></th>
                     <th>Website</th>
                 </tr>
             </thead>
@@ -1107,7 +1179,10 @@
         let filterSettings = {
             minRating: 0,
             minReviews: 0,
-            contactInfo: "any"
+            contactInfo: "any",
+            placeType: "any",
+            priceLevel: "any",
+            businessStatus: "any"
         };
 
         function initMap() {
@@ -1211,6 +1286,25 @@
             // Add search button listener
             document.getElementById("search-button").addEventListener("click", function() {
                 searchBusinesses();
+            });
+            
+            // Add place types button listener
+            document.getElementById("show-place-types-btn").addEventListener("click", function() {
+                const helpPanel = document.querySelector('.place-types-help');
+                if (helpPanel.style.display === 'none') {
+                    helpPanel.style.display = 'block';
+                    this.textContent = 'Hide Types';
+                } else {
+                    helpPanel.style.display = 'none';
+                    this.textContent = 'Place Types';
+                }
+            });
+            
+            // Add place type dropdown listener
+            document.getElementById("place-type-dropdown").addEventListener("change", function() {
+                if (this.value) {
+                    document.getElementById("search-term").value = this.value;
+                }
             });
 
             // Add download CSV button listener
@@ -2133,6 +2227,9 @@ Please refresh the page and try your search again.
             filterSettings.minRating = parseFloat(document.getElementById("min-rating").value);
             filterSettings.minReviews = parseInt(document.getElementById("min-reviews").value);
             filterSettings.contactInfo = document.getElementById("contact-filter").value;
+            filterSettings.placeType = document.getElementById("place-type-filter").value;
+            filterSettings.priceLevel = document.getElementById("price-level-filter").value;
+            filterSettings.businessStatus = document.getElementById("business-status-filter").value;
             
             // Filter the results
             filterResults();
@@ -2152,12 +2249,18 @@ Please refresh the page and try your search again.
             document.getElementById("min-reviews").value = "0";
             document.getElementById("min-reviews-slider").value = "0";
             document.getElementById("contact-filter").value = "any";
+            document.getElementById("place-type-filter").value = "any";
+            document.getElementById("price-level-filter").value = "any";
+            document.getElementById("business-status-filter").value = "any";
             
             // Reset filter settings
             filterSettings = {
                 minRating: 0,
                 minReviews: 0,
-                contactInfo: "any"
+                contactInfo: "any",
+                placeType: "any",
+                priceLevel: "any",
+                businessStatus: "any"
             };
             
             // Apply the reset filters
@@ -2202,6 +2305,37 @@ Please refresh the page and try your search again.
                     return false;
                 }
                 
+                // Apply place type filter
+                if (filterSettings.placeType !== "any") {
+                    // Check if the place has this type either as primary or secondary
+                    const primaryType = business.primary_type || "N/A";
+                    const secondaryTypes = business.secondary_types || [];
+                    
+                    if (primaryType !== filterSettings.placeType && 
+                        !secondaryTypes.includes(filterSettings.placeType)) {
+                        return false;
+                    }
+                }
+                
+                // Apply price level filter
+                if (filterSettings.priceLevel !== "any") {
+                    const price = business.price_level;
+                    // Convert price level to string for comparison (API may return numbers)
+                    if (price !== filterSettings.priceLevel && 
+                        price !== parseInt(filterSettings.priceLevel) && 
+                        price !== "N/A") {
+                        return false;
+                    }
+                }
+                
+                // Apply business status filter
+                if (filterSettings.businessStatus !== "any") {
+                    const status = business.business_status || "N/A";
+                    if (status !== filterSettings.businessStatus) {
+                        return false;
+                    }
+                }
+                
                 // Passed all filters
                 return true;
             });
@@ -2209,6 +2343,43 @@ Please refresh the page and try your search again.
             // Update count display
             document.getElementById("results-count").textContent = 
                 `Found ${filteredResults.length} of ${allSearchResults.length} businesses`;
+        }
+        
+        // Function to update the place type filter dropdown
+        function updatePlaceTypeFilter(types) {
+            const typeFilter = document.getElementById('place-type-filter');
+            // Save the current selection
+            const currentSelection = typeFilter.value;
+            
+            // Clear all options except the 'Any' option
+            while (typeFilter.options.length > 1) {
+                typeFilter.remove(1);
+            }
+            
+            // Sort the types alphabetically
+            types.sort((a, b) => {
+                return a.replace(/_/g, ' ').localeCompare(b.replace(/_/g, ' '));
+            });
+            
+            // Add each type as an option
+            types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                // Format the type to be more readable
+                option.textContent = type.replace(/_/g, ' ');
+                typeFilter.appendChild(option);
+            });
+            
+            // Restore the previous selection if it still exists
+            if (currentSelection !== 'any') {
+                // Look for the option with this value
+                for (let i = 0; i < typeFilter.options.length; i++) {
+                    if (typeFilter.options[i].value === currentSelection) {
+                        typeFilter.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
         }
         
         function sortResults() {
@@ -2221,6 +2392,10 @@ Please refresh the page and try your search again.
                 if (currentSortColumn === 'rating' || currentSortColumn === 'total_ratings') {
                     aValue = parseFloat(aValue) || 0;
                     bValue = parseFloat(bValue) || 0;
+                } else if (currentSortColumn === 'price_level') {
+                    // Handle price level specially
+                    aValue = parseInt(aValue) || 0;
+                    bValue = parseInt(bValue) || 0;
                 } else {
                     // Convert to lowercase strings for text comparison
                     aValue = (aValue || '').toString().toLowerCase();
@@ -2273,8 +2448,19 @@ Please refresh the page and try your search again.
             const tbody = document.getElementById("results-body");
             tbody.innerHTML = "";
             
+            // Collect unique place types for the filter dropdown
+            let placeTypes = new Set();
+            
             visibleResults.forEach(business => {
                 const row = document.createElement("tr");
+                
+                // Collect place types for filter
+                if (business.primary_type && business.primary_type !== 'N/A') {
+                    placeTypes.add(business.primary_type);
+                }
+                if (business.secondary_types && business.secondary_types.length > 0) {
+                    business.secondary_types.forEach(type => placeTypes.add(type));
+                }
                 
                 // Name cell with Google Maps link
                 const nameCell = document.createElement("td");
@@ -2294,6 +2480,25 @@ Please refresh the page and try your search again.
                 const addressCell = document.createElement("td");
                 addressCell.textContent = business.address;
                 row.appendChild(addressCell);
+                
+                // Type cell
+                const typeCell = document.createElement("td");
+                if (business.primary_type && business.primary_type !== 'N/A') {
+                    // Format the type to be more readable
+                    const formattedType = business.primary_type.replace(/_/g, ' ');
+                    typeCell.textContent = formattedType;
+                    
+                    // Add tooltip with secondary types if available
+                    if (business.secondary_types && business.secondary_types.length > 0) {
+                        const formattedSecondaryTypes = business.secondary_types
+                            .map(type => type.replace(/_/g, ' '))
+                            .join(', ');
+                        typeCell.title = `Secondary types: ${formattedSecondaryTypes}`;
+                    }
+                } else {
+                    typeCell.textContent = 'N/A';
+                }
+                row.appendChild(typeCell);
                 
                 // Phone cell
                 const phoneCell = document.createElement("td");
@@ -2318,6 +2523,21 @@ Please refresh the page and try your search again.
                 }
                 row.appendChild(reviewsCell);
                 
+                // Price level cell
+                const priceCell = document.createElement("td");
+                if (business.price_level !== undefined && business.price_level !== 'N/A') {
+                    // Convert numeric price level to pound signs for UK audience
+                    const price = parseInt(business.price_level);
+                    if (!isNaN(price)) {
+                        priceCell.textContent = '£'.repeat(price + 1);
+                    } else {
+                        priceCell.textContent = business.price_level;
+                    }
+                } else {
+                    priceCell.textContent = 'N/A';
+                }
+                row.appendChild(priceCell);
+                
                 // Website cell
                 const websiteCell = document.createElement("td");
                 if (business.website && business.website !== 'N/A') {
@@ -2333,6 +2553,10 @@ Please refresh the page and try your search again.
                 
                 tbody.appendChild(row);
             });
+            
+            // Update the place type filter dropdown with all available types
+            const placeTypeArray = Array.from(placeTypes);
+            updatePlaceTypeFilter(placeTypeArray);
             
             // Show/hide pagination based on result count
             const paginationDiv = document.querySelector(".pagination");
@@ -2468,17 +2692,31 @@ Please refresh the page and try your search again.
                 { label: "Rating", key: "rating" },
                 { label: "Total Ratings", key: "total_ratings" },
                 { label: "Is Open Now", key: "is_open_now" },
-                { label: "Place ID", key: "place_id" }
+                { label: "Place ID", key: "place_id" },
+                { label: "Primary Type", key: "primary_type" },
+                { label: "Secondary Types", key: "secondary_types_string" },
+                { label: "Business Status", key: "business_status" },
+                { label: "Price Level", key: "price_level" }
             ];
             
-            // Add Google Maps URLs to the data
+            // Add Google Maps URLs to the data and format secondary types
             const resultsWithMapsUrls = resultsToDownload.map(result => {
                 const item = {...result};
+                
+                // Add Google Maps URL
                 if (item.place_id) {
                     item.maps_url = `https://www.google.com/maps/place/?q=place_id:${item.place_id}`;
                 } else {
                     item.maps_url = "N/A";
                 }
+                
+                // Convert secondary_types array to string
+                if (item.secondary_types && Array.isArray(item.secondary_types)) {
+                    item.secondary_types_string = item.secondary_types.join(', ');
+                } else {
+                    item.secondary_types_string = '';
+                }
+                
                 return item;
             });
             
