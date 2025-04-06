@@ -1,6 +1,5 @@
 # Business Finder
 
-
 ## Overview
 
 Business Finder is a tool that combines a visual map interface with the power of the Google Places API to help you find and export business data. Whether you're conducting market research, planning business outreach, or analyzing competition, this tool makes it easy to:
@@ -8,16 +7,20 @@ Business Finder is a tool that combines a visual map interface with the power of
 1. Visually select a geographic area on a map
 2. Set a precise search radius
 3. Search for specific business types
-4. Export complete business details to CSV or JSON
+4. Filter results based on ratings, review counts, and contact information
+5. Export complete business details to CSV or JSON
 
 ## Features
 
 - **Interactive Map Interface**: Select any location worldwide with a simple click
 - **Visual Radius Selection**: Adjust your search radius by dragging or using a slider
 - **Flexible Search Terms**: Find any type of business (restaurants, hotels, retail, etc.)
+- **Advanced Filtering**: Filter results by rating, review count, and contact information availability
+- **Sortable Results**: Sort business listings by name, address, rating, or review count
 - **Comprehensive Data Export**: Get business names, addresses, phone numbers, websites, ratings, and more
 - **Multiple Export Formats**: Save results as CSV or JSON
 - **Command-Line Interface**: Run searches programmatically or from scripts
+- **Web Server Mode**: Run as a local server for a complete web application experience
 
 ## Installation
 
@@ -45,18 +48,34 @@ poetry shell
 business-finder config --set-api-key "YOUR_GOOGLE_API_KEY"
 ```
 
-### 2. Use the Web Interface to Select a Location
+### 2. Use the Web Interface
 
+You can use Business Finder in two ways:
+
+#### Option A: Standalone HTML page
 Open `web/index.html` in your browser (add your API key to the URL):
 ```
 file:///path/to/business-finder/web/index.html?key=YOUR_GOOGLE_API_KEY
 ```
 
+#### Option B: Run the built-in web server (Recommended)
+```bash
+# Start the web server
+python web/server.py
+
+# Open in your browser
+# http://localhost:8000
+```
+
+The web server automatically injects your API key from your configuration, so you don't need to manually add it to the HTML file.
+
 Follow these steps:
 1. Click anywhere on the map to set your search center
 2. Adjust the circle radius by dragging or using the slider
 3. Enter your search term (e.g., "coffee shop")
-4. Click "Copy Parameters" to copy the search configuration
+4. Click "Search Businesses" to see results
+5. Filter and sort results as needed
+6. Download results as CSV or click "Copy Parameters" to get the command-line version
 
 ### 3. Run the Search
 
@@ -70,11 +89,16 @@ business-finder search --params-file location.json
 
 ### 4. View Results
 
-The results will be saved to `business_results.csv` by default. You can specify a different output file:
+Results will be saved to the `data/` directory by default. You can specify a different output file:
 
 ```bash
-business-finder search --json-params '...' --output my_results.csv
+business-finder search --json-params '...' --output data/my_results.csv
 ```
+
+When using the web interface, results are displayed directly in the browser and can be:
+- Filtered by minimum rating, minimum review count, or contact information
+- Sorted by clicking on any column header
+- Downloaded as CSV for the complete set or just the filtered view
 
 ## Command-Line Reference
 
@@ -184,7 +208,9 @@ business-finder/
 │
 ├── README.md                   # Project documentation
 ├── LICENSE                     # License file (e.g., MIT)
-├── requirements.txt            # Python dependencies
+├── CLAUDE.md                   # Instructions for Claude Code AI
+├── pyproject.toml              # Poetry configuration
+├── poetry.lock                 # Poetry locked dependencies  
 ├── setup.py                    # Package installation script
 │
 ├── business_finder/            # Main Python package
@@ -201,8 +227,11 @@ business-finder/
 │       ├── csv_exporter.py     # CSV export functionality
 │       └── json_exporter.py    # JSON export functionality
 │
+├── data/                       # Storage directory for exported data
+│
 ├── web/                        # Web interface files
-│   ├── index.html              # Map selection widget HTML
+│   ├── index.html              # Interactive web interface
+│   ├── server.py               # Built-in web server
 │   ├── css/                    # CSS styles
 │   │   └── style.css           # Main stylesheet
 │   ├── js/                     # JavaScript files
@@ -234,25 +263,35 @@ The core Python package contains all the functionality for interacting with the 
 
 ### Web Interface (`web/`)
 
-The web folder contains all files for the interactive map widget.
+The web folder contains all files for the interactive web application.
 
-- **index.html**: The main HTML file for the map widget
+- **index.html**: The main HTML file with interactive map and results table
+- **server.py**: A built-in web server that connects the front-end to the Business Finder API
 - **js/map-widget.js**: JavaScript code for the map functionality
 - **js/integration.js**: Code for integrating with the Python backend
 
 ### Installation and Setup
 
-1. Install the package: (#TODO change this to poetry)
+1. Install the package with Poetry:
    ```bash
-   pip install -r requirements.txt
-   pip install -e .
+   # Install Poetry if you don't have it already
+   # See https://python-poetry.org/docs/#installation
+   
+   # Install the package and dependencies
+   poetry install
+   
+   # Activate the virtual environment
+   poetry shell
    ```
 
 2. Set up your Google API key:
    ```bash
    export GOOGLE_API_KEY="your_api_key"
    ```
-   Or use a configuration file.
+   Or use the configuration command:
+   ```bash
+   business-finder config --set-api-key "your_api_key"
+   ```
 
 ### Usage Examples
 
@@ -266,4 +305,20 @@ business-finder search --json-params '{"search_term":"coffee shop","latitude":37
 ```
 
 #### Web Interface
-Open the `web/index.html` file in a browser, select a location and radius, then copy the parameters to use with the command-line tool.
+
+Option 1: Start the web server and access the full web application:
+```bash
+# Start the web server
+python web/server.py
+
+# Open in your browser
+# http://localhost:8000
+```
+
+Option 2: Open the `web/index.html` file directly in a browser.
+
+With the web interface, you can:
+1. Search for businesses visually using the map
+2. View results in a sortable, filterable table
+3. Download results to CSV files (stored in the `data/` directory)
+4. Generate and copy the equivalent command-line command

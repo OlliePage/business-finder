@@ -33,3 +33,7 @@ ENV/
 *.csv
 *.json
 config.json
+/data/
+
+# Keep example json files in samples, but ignore real data
+!/examples/sample_data/*.json

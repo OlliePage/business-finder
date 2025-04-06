@@ -8,8 +8,10 @@ This web interface provides a user-friendly way to search for businesses using G
 - Location search with Google Places autocomplete
 - Current location detection
 - Adjustable search radius (via slider or direct input)
-- Display search results in a table
-- CSV export of all results or visible/selected results
+- Display search results in a sortable, filterable table
+- Filter results by rating, review count, and contact info
+- Sort results by clicking on column headers
+- CSV export of all results or filtered/visible results
 - Pagination for large result sets
 
 ## Getting Started
@@ -33,11 +35,15 @@ python server.py
 python server.py 8080
 ```
 
+The server will automatically use your configured API key from the Business Finder configuration.
+
 2. Open your browser and navigate to:
 
 ```
 http://localhost:8000
 ```
+
+Note: When using the web server, your Google API key will be automatically injected into the HTML, so you don't need to manually update it.
 
 ### Using the Web Interface
 
@@ -55,14 +61,22 @@ http://localhost:8000
 
 4. Click "Search Businesses" to find matching businesses
 
-5. View results:
-   - Results are displayed in a table
+5. View and manage results:
+   - Results are displayed in a table with sortable columns
+   - Click on any column header to sort by that field (name, address, rating, reviews)
+   - Use the filters to narrow down results by minimum rating, minimum reviews, or contact info
    - Use the dropdown to control how many results are visible per page
    - Navigate through pages with the pagination controls
 
 6. Export results:
    - "Download as CSV" exports all search results
-   - "Download Visible Results" exports only the currently visible results
+   - "Download Visible Results" exports only the currently filtered/visible results
+   - All downloaded files are saved to the `data/` directory in the project root
+
+7. Get command-line equivalent:
+   - Click "Copy Parameters" to get the exact CLI command
+   - A modal will show the formatted command you can run in your terminal
+   - Copy the command to clipboard with a single click
 
 ## Debug Mode
 
@@ -82,8 +96,9 @@ In debug mode, you can see:
 The backend server (`server.py`) provides:
 
 1. Static file serving for the web interface
-2. A `/api/search` endpoint that connects to the Business Finder CLI
-3. Direct integration with the Business Finder Python package
+2. A `/api/search` endpoint that connects directly to the Business Finder Python package
+3. Automatic saving of search results to the `data/` directory
+4. Redirection from root path to index.html
 
 The server handles JSON requests from the frontend and returns business search results in JSON format.
 
