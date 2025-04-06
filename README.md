@@ -1,5 +1,6 @@
 # Business Finder
-[![codecov](https://codecov.io/gh/user/business-finder/branch/master/graph/badge.svg)](https://codecov.io/gh/user/business-finder)
+[![Python CI](https://github.com/OlliePage/business-finder/actions/workflows/python-ci.yml/badge.svg)](https://github.com/OlliePage/business-finder/actions/workflows/python-ci.yml)
+[![codecov](https://codecov.io/gh/OlliePage/business-finder/graph/badge.svg?token=1A2QDJVKO5)](https://codecov.io/gh/OlliePage/business-finder)
 
 ## Overview
 
