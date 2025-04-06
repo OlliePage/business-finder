@@ -1,5 +1,9 @@
 # Business Finder
 
+[![Python Tests](https://github.com/user/business-finder/actions/workflows/python-tests.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-tests.yml)
+[![Python Linting](https://github.com/user/business-finder/actions/workflows/python-lint.yml/badge.svg)](https://github.com/user/business-finder/actions/workflows/python-lint.yml)
+[![codecov](https://codecov.io/gh/user/business-finder/branch/master/graph/badge.svg)](https://codecov.io/gh/user/business-finder)
+
 ## Overview
 
 Business Finder is a tool that combines a visual map interface with the power of the Google Places API to help you find and export business data. Whether you're conducting market research, planning business outreach, or analyzing competition, this tool makes it easy to:
@@ -38,6 +42,37 @@ poetry install
 # Activate the virtual environment
 poetry shell
 ```
+
+## Testing
+
+The project has a comprehensive test suite with over 90% code coverage. To run the tests:
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=business_finder --cov-branch --cov-report=term
+```
+
+For more detailed information about testing, see the [tests/README.md](tests/README.md) file.
+
+## Continuous Integration
+
+This project uses GitHub Actions for continuous integration and delivery:
+
+- **Python Tests**: Runs the test suite on multiple Python versions (3.9, 3.10, 3.11)
+- **Python Linting**: Checks code quality with flake8, black, and isort
+- **Python Publish**: Builds and publishes the package to PyPI when a new release is created
+
+These CI workflows ensure that:
+- All tests pass on every push and pull request
+- Code follows consistent style guidelines
+- Test coverage remains high
+- Package releases are tested before publishing
 
 ## Quick Start
 
@@ -190,7 +225,22 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+5. Make sure all tests pass (see [Testing](#testing))
+6. Ensure your code follows style guidelines by running linting tools:
+   ```bash
+   pip install flake8 black isort
+   flake8 .
+   black business_finder tests
+   isort business_finder tests
+   ```
+7. Open a Pull Request
+
+When you open a pull request, the CI/CD workflows will automatically run to verify that:
+- All tests pass across multiple Python versions
+- Code style meets the project's guidelines
+- Test coverage remains high
+
+The PR will show the status of these checks, and it should be ready to merge once all checks pass.
 
 ## License
 
@@ -246,9 +296,16 @@ business-finder/
 │
 └── tests/                      # Test suite
     ├── __init__.py
+    ├── README.md               # Test documentation
     ├── test_api.py             # API tests
+    ├── test_cli.py             # CLI tests
+    ├── test_config.py          # Configuration tests
     ├── test_exporters.py       # Exporter tests
+    ├── test_geocoding.py       # Geocoding tests
+    ├── test_integration.py     # Integration tests
     └── fixtures/               # Test fixtures
+        ├── __init__.py
+        └── mock_responses.py   # Mock API responses
 ```
 
 ## Key Components
