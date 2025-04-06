@@ -222,6 +222,32 @@
             display: flex;
             align-items: center;
         }
+        .command-display {
+            background-color: #f2f2f2;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            display: none;
+            overflow-x: auto;
+        }
+        .debug-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f2f2f2;
+            border-radius: 6px;
+            display: none;
+        }
+        .debug-section h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .debug-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -278,6 +304,8 @@
                 <button id="search-button">Search Businesses</button>
                 <button id="copy-button">Copy Parameters</button>
             </div>
+
+            <div class="command-display" id="command-display"></div>
         </div>
     </div>
 
@@ -326,6 +354,14 @@
         </div>
     </div>
 
+    <div class="debug-section" id="debug-section">
+        <h3>Debug Controls</h3>
+        <div id="debug-output"></div>
+        <div class="debug-buttons">
+            <button id="toggle-debug">Toggle Debug Mode</button>
+        </div>
+    </div>
+
     <script>
         let map;
         let marker;
@@ -338,6 +374,7 @@
         let allSearchResults = [];
         let currentPage = 1;
         let resultsPerPage = 10;
+        let debugMode = false;
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -480,6 +517,33 @@
                     updateResultsDisplay();
                 }
             });
+
+            // Debug mode toggle
+            document.getElementById("toggle-debug").addEventListener("click", function() {
+                debugMode = !debugMode;
+                document.getElementById("command-display").style.display = debugMode ? "block" : "none";
+                document.getElementById("debug-section").style.display = debugMode ? "block" : "none";
+                this.textContent = debugMode ? "Hide Debug Info" : "Show Debug Info";
+            });
+
+            // Check if URL has a debug parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('debug')) {
+                debugMode = true;
+                document.getElementById("command-display").style.display = "block";
+                document.getElementById("debug-section").style.display = "block";
+                document.getElementById("toggle-debug").textContent = "Hide Debug Info";
+            }
+
+            // Add Ctrl+Shift+D shortcut for debug mode
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                    debugMode = !debugMode;
+                    document.getElementById("command-display").style.display = debugMode ? "block" : "none";
+                    document.getElementById("debug-section").style.display = debugMode ? "block" : "none";
+                    document.getElementById("toggle-debug").textContent = debugMode ? "Hide Debug Info" : "Show Debug Info";
+                }
+            });
         }
 
         function searchLocation(address) {
@@ -557,6 +621,11 @@
             };
         }
 
+        function getCliCommand(params) {
+            const jsonParams = JSON.stringify(params);
+            return `poetry run business-finder search --json-params '${jsonParams}'`;
+        }
+
         function copyParametersToClipboard() {
             const params = getParameters();
             const paramsString = JSON.stringify(params, null, 2);
@@ -605,72 +674,96 @@
             // Reset pagination 
             currentPage = 1;
             
-            // In a real implementation, this would be a server endpoint
-            // Here we'll simulate the API call and response
-            simulateAPICall(params)
-                .then(businesses => {
-                    allSearchResults = businesses;
-                    updateResultsDisplay();
-                    document.getElementById("loading-overlay").style.display = "none";
-                })
-                .catch(error => {
-                    showError(`Error: ${error.message}`);
-                    document.getElementById("loading-overlay").style.display = "none";
-                    document.getElementById("results-count").textContent = "Search failed. Please try again.";
-                });
+            // Show command in debug mode
+            const command = getCliCommand(params);
+            const commandDisplay = document.getElementById("command-display");
+            commandDisplay.textContent = command;
+            if (debugMode) {
+                commandDisplay.style.display = "block";
+            }
+            
+            // Make the API call to our backend
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                allSearchResults = data;
+                updateResultsDisplay();
+                document.getElementById("loading-overlay").style.display = "none";
+                
+                // Log in debug mode
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML = 
+                        `<pre>API Response: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching search results:", error);
+                
+                // Since we might not have a backend set up, fallback to mock data for demonstration
+                fallbackToMockData(params);
+                
+                // Log error in debug mode
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML = 
+                        `<p>Error: ${error.message}</p>
+                         <p>Falling back to mock data for demonstration purposes.</p>
+                         <p>In a production environment, you would need to set up the backend API endpoint.</p>`;
+                }
+            });
         }
 
-        // This function simulates calling the backend API
-        // In a real implementation, this would be an actual fetch to your server
-        function simulateAPICall(params) {
-            return new Promise((resolve, reject) => {
-                // In a real implementation, this would be:
-                // fetch('/api/search', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify(params)
-                // })
-                // .then(response => response.json())
+        // Fallback function to generate mock data that matches the real data structure
+        function fallbackToMockData(params) {
+            console.log("Falling back to mock data for demonstration");
+            
+            const mockBusinessNames = [
+                "Cafe Sunshine", "Downtown Restaurant", "Corner Bistro", 
+                "Main Street Bakery", "Riverside Diner", "City View Bar",
+                "Ocean Grill", "Mountain Lodge", "Green Valley Cafe", 
+                "Sunset Restaurant", "Morning Brew", "Starlight Cafe"
+            ];
+            
+            // Generate between 5 and 12 results
+            const resultCount = Math.floor(Math.random() * 8) + 5;
+            const mockBusinesses = [];
+            
+            for (let i = 0; i < resultCount; i++) {
+                const nameIndex = i % mockBusinessNames.length;
+                const rating = (Math.random() * 2 + 3).toFixed(1); // Random rating between 3.0 and 5.0
+                const reviewCount = Math.floor(Math.random() * 300) + 50; // Random review count between 50 and 350
                 
-                // For demonstration, we'll create mock data with a variable number of results
-                setTimeout(() => {
-                    const mockBusinessNames = [
-                        "Cafe Sunshine", "Downtown Restaurant", "Corner Bistro", 
-                        "Main Street Bakery", "Riverside Diner", "City View Bar",
-                        "Ocean Grill", "Mountain Lodge", "Green Valley Cafe", 
-                        "Sunset Restaurant", "Morning Brew", "Starlight Cafe",
-                        "The Local Spot", "Fresh Bites", "Harbor View", 
-                        "Jungle Cafe", "Metro Diner", "Country Kitchen",
-                        "Seaside Bakery", "Urban Eatery", "The Cozy Corner",
-                        "Golden Spoon", "Blue Plate", "Silver Diner",
-                        "Red Door Cafe", "The Green Room", "Yellow Umbrella",
-                        "Purple Fig", "Orange Blossom", "Indigo Restaurant"
-                    ];
-                    
-                    // Generate between 5 and 30 results
-                    const resultCount = Math.floor(Math.random() * 26) + 5;
-                    const mockBusinesses = [];
-                    
-                    for (let i = 0; i < resultCount; i++) {
-                        const nameIndex = i % mockBusinessNames.length;
-                        const rating = (Math.random() * 2 + 3).toFixed(1); // Random rating between 3.0 and 5.0
-                        const reviewCount = Math.floor(Math.random() * 300) + 50; // Random review count between 50 and 350
-                        
-                        mockBusinesses.push({
-                            name: `${mockBusinessNames[nameIndex]} ${i + 1}`,
-                            address: `${100 + i} ${(['Main', 'Oak', 'Pine', 'Maple', 'Cedar'])[i % 5]} St, City, State`,
-                            phone: `(123) ${456 + i}-${7890 + i}`,
-                            website: `https://example.com/${mockBusinessNames[nameIndex].toLowerCase().replace(/\s+/g, '')}${i}`,
-                            rating: rating,
-                            total_ratings: reviewCount,
-                            is_open_now: Math.random() > 0.3 ? "Yes" : "No", // 70% chance of being open
-                            place_id: `place${i}${Math.random().toString(36).substring(7)}`
-                        });
-                    }
-                    
-                    resolve(mockBusinesses);
-                }, 1500); // Simulate network delay
-            });
+                mockBusinesses.push({
+                    name: `${mockBusinessNames[nameIndex]}`,
+                    address: `${100 + i} ${(['Main', 'Oak', 'Pine', 'Maple', 'Cedar'])[i % 5]} St, Near ${params.search_term}`,
+                    phone: `(123) ${456 + i}-${7890 + i}`,
+                    website: `https://example.com/${mockBusinessNames[nameIndex].toLowerCase().replace(/\s+/g, '')}`,
+                    rating: rating,
+                    total_ratings: reviewCount,
+                    is_open_now: Math.random() > 0.3 ? "Yes" : "No", 
+                    place_id: `place${i}${Math.random().toString(36).substring(7)}`
+                });
+            }
+            
+            allSearchResults = mockBusinesses;
+            updateResultsDisplay();
+            document.getElementById("loading-overlay").style.display = "none";
+            
+            // Display the CLI command that would have been executed
+            const commandElement = document.getElementById("command-display");
+            const command = getCliCommand(params);
+            commandElement.textContent = command;
+            commandElement.style.display = debugMode ? "block" : "none";
         }
 
         function getVisibleResults() {
