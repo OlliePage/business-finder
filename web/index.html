@@ -196,6 +196,11 @@
             margin-bottom: 15px;
             display: none;
         }
+        
+        .success-message {
+            color: #188038;
+            background-color: #e6f4ea;
+        }
         .results-info {
             display: flex;
             align-items: center;
@@ -429,89 +434,287 @@
         td a:hover {
             text-decoration: underline;
         }
+        
+        /* History panel styles */
+        #app-container {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+            position: relative;
+        }
+        
+        #main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: margin-right 0.3s ease;
+        }
+        
+        #history-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-left: 1px solid #e9ecef;
+            overflow-y: auto;
+            padding: 20px;
+            display: none;
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 1000;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        #history-panel.visible {
+            display: block !important;
+        }
+        
+        /* When history panel is visible, add margin to main content */
+        #history-panel.visible + #main-content {
+            margin-right: 300px;
+        }
+        
+        #toggle-history {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            z-index: 100;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .history-item {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .history-item:hover {
+            background-color: #e9ecef;
+        }
+        
+        .history-item h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .history-details {
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .history-details span {
+            margin-bottom: 4px;
+        }
+        
+        .history-date {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+        
+        .cached-label {
+            display: inline-block;
+            background-color: #34a853;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        
+        /* History panel additional styles */
+        .history-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .history-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+        }
+        
+        .history-stats {
+            background-color: #e9f5ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .history-stats h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+        
+        .history-stats dl {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin: 0;
+        }
+        
+        .history-stats dt {
+            font-weight: 600;
+        }
+        
+        .history-stats dd {
+            margin: 0;
+        }
+        
+        .delete-search {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .history-item {
+            position: relative;
+        }
+        
+        .history-item:hover .delete-search {
+            opacity: 1;
+        }
+        
+        .delete-search:hover {
+            color: #d93025;
+        }
     </style>
 </head>
 <body>
-    <h1>Business Search Map Selector</h1>
-
-    <div class="instructions">
-        <p><strong>Instructions:</strong></p>
-        <ol>
-            <li>Set your location by using your current location, searching for a place, or clicking on the map</li>
-            <li>Adjust the radius by dragging the circle, using the slider, or entering a specific value</li>
-            <li>Enter your search term (e.g., "coffee shop", "restaurant")</li>
-            <li>Click "Search" to find businesses in the selected area</li>
-        </ol>
-    </div>
-
-    <div id="container">
-        <div id="map-container">
-            <div id="map"></div>
-        </div>
-
-        <div id="controls">
-            <div class="control-group">
-                <label for="location-search">Location:</label>
-                <div class="location-buttons">
-                    <button id="current-location-btn">Use Current Location</button>
-                </div>
-                <div class="input-with-button">
-                    <input id="location-search" type="text" placeholder="Search for a location">
-                    <button id="search-location-btn">Search</button>
-                </div>
+    <button id="toggle-history">History</button>
+    
+    <div id="app-container">
+        <div id="history-panel">
+            <h2>Search History</h2>
+            <p>Click on a previous search to load its results</p>
+            
+            <div class="history-actions">
+                <button id="refresh-history" class="secondary-button">Refresh History</button>
+                <button id="clean-history" class="secondary-button">Clean Old Searches</button>
             </div>
-
-            <div class="control-group">
-                <label for="search-term">Search Term:</label>
-                <input type="text" id="search-term" placeholder="e.g., coffee shop, restaurant">
+            
+            <div id="history-stats" class="history-stats">
+                <!-- Stats will be displayed here -->
             </div>
-
-            <div class="control-group">
-                <label for="radius-slider">Radius:</label>
-                <div class="radius-inputs">
-                    <input type="number" id="radius-input" min="100" max="50000" step="100" value="1000">
-                    <span>meters</span>
-                </div>
-                <input type="range" id="radius-slider" min="100" max="50000" step="100" value="1000">
-            </div>
-
-            <div class="coordinates">
-                <div id="lat-lng-display">Click on the map to set location</div>
-            </div>
-
-            <div class="error-message" id="error-message"></div>
-
-            <div class="action-buttons">
-                <button id="search-button">Search Businesses</button>
-                <button id="copy-button">Copy Parameters</button>
-            </div>
-
-            <div class="command-display" id="command-display"></div>
-        </div>
-    </div>
-
-    <!-- Command modal for copy parameters -->
-    <div id="command-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Command Line Usage</h3>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>Run the following command in your terminal to get the same results:</p>
-                <pre id="command-line-text"></pre>
-                <div class="modal-actions">
-                    <button id="copy-command" class="secondary-button">Copy to Clipboard</button>
-                </div>
+            
+            <div id="history-list">
+                <!-- History items will be populated here -->
             </div>
         </div>
-    </div>
+        
+        <div id="main-content">
+            <h1>Business Search Map Selector</h1>
 
-    <div id="results-container">
-        <div id="loading-overlay">
-            <div class="spinner"></div>
-        </div>
-        <h2>Search Results</h2>
+            <div class="instructions">
+                <p><strong>Instructions:</strong></p>
+                <ol>
+                    <li>Set your location by using your current location, searching for a place, or clicking on the map</li>
+                    <li>Adjust the radius by dragging the circle, using the slider, or entering a specific value</li>
+                    <li>Enter your search term (e.g., "coffee shop", "restaurant")</li>
+                    <li>Click "Search" to find businesses in the selected area</li>
+                </ol>
+            </div>
+
+            <div id="container">
+                <div id="map-container">
+                    <div id="map"></div>
+                </div>
+
+                <div id="controls">
+                    <div class="control-group">
+                        <label for="location-search">Location:</label>
+                        <div class="location-buttons">
+                            <button id="current-location-btn">Use Current Location</button>
+                        </div>
+                        <div class="input-with-button">
+                            <input id="location-search" type="text" placeholder="Search for a location">
+                            <button id="search-location-btn">Search</button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="search-term">Search Term:</label>
+                        <input type="text" id="search-term" placeholder="e.g., coffee shop, restaurant">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="radius-slider">Radius:</label>
+                        <div class="radius-inputs">
+                            <input type="number" id="radius-input" min="100" max="50000" step="100" value="1000">
+                            <span>meters</span>
+                        </div>
+                        <input type="range" id="radius-slider" min="100" max="50000" step="100" value="1000">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="use-cache">Cache:</label>
+                        <div>
+                            <input type="checkbox" id="use-cache" checked>
+                            <label for="use-cache">Use cached results when available</label>
+                        </div>
+                    </div>
+
+                    <div class="coordinates">
+                        <div id="lat-lng-display">Click on the map to set location</div>
+                    </div>
+
+                    <div class="error-message" id="error-message"></div>
+
+                    <div class="action-buttons">
+                        <button id="search-button">Search Businesses</button>
+                        <button id="copy-button">Copy Parameters</button>
+                    </div>
+
+                    <div class="command-display" id="command-display"></div>
+                </div>
+            </div>
+
+            <!-- Command modal for copy parameters -->
+            <div id="command-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Command Line Usage</h3>
+                        <span class="close-modal">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <p>Run the following command in your terminal to get the same results:</p>
+                        <pre id="command-line-text"></pre>
+                        <div class="modal-actions">
+                            <button id="copy-command" class="secondary-button">Copy to Clipboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-container">
+                <div id="loading-overlay">
+                    <div class="spinner"></div>
+                </div>
+                <h2>Search Results <span id="cache-indicator" class="cached-label" style="display: none;">Cached</span></h2>
         
         <div class="results-info">
             <div id="results-count">Found 0 businesses</div>
@@ -605,13 +808,14 @@
             <button id="toggle-debug">Toggle Debug Mode</button>
         </div>
     </div>
+</div>
 
     <script>
         let map;
         let marker;
         let circle;
-        let currentLat = 37.7749;
-        let currentLng = -122.4194;
+        let currentLat = 51.485097;
+        let currentLng = -2.601889;
         let currentRadius = 1000;
         let geocoder;
         let searchBox;
@@ -622,6 +826,8 @@
         let debugMode = false;
         let currentSortColumn = "name";
         let currentSortDirection = "asc";
+        let isHistoryPanelVisible = false;
+        let lastSearchWasCached = false;
         
         // Filter settings
         let filterSettings = {
@@ -855,6 +1061,356 @@
                     document.getElementById("toggle-debug").textContent = debugMode ? "Hide Debug Info" : "Show Debug Info";
                 }
             });
+            
+            // Add history panel toggle
+            document.getElementById("toggle-history").addEventListener("click", toggleHistoryPanel);
+            
+            // Add refresh button handler
+            document.getElementById("refresh-history").addEventListener("click", function() {
+                loadSearchHistory();
+                loadDatabaseStats();
+            });
+            
+            // Add clean history button handler
+            document.getElementById("clean-history").addEventListener("click", function() {
+                cleanOldSearches();
+            });
+            
+            // Load history when the page loads
+            loadSearchHistory();
+        }
+        
+        function toggleHistoryPanel() {
+            const historyPanel = document.getElementById("history-panel");
+            isHistoryPanelVisible = !isHistoryPanelVisible;
+            
+            if (isHistoryPanelVisible) {
+                historyPanel.classList.add("visible");
+                document.getElementById("toggle-history").textContent = "Hide History";
+                loadSearchHistory(); // Refresh the history
+                loadDatabaseStats(); // Load DB stats
+                console.log("History panel opened, loading history...");
+            } else {
+                historyPanel.classList.remove("visible");
+                document.getElementById("toggle-history").textContent = "History";
+            }
+        }
+        
+        function loadDatabaseStats() {
+            fetch('/api/db_stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(stats => {
+                displayDatabaseStats(stats);
+            })
+            .catch(error => {
+                console.error("Error loading database stats:", error);
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML += 
+                        `<p>Error loading database stats: ${error.message}</p>`;
+                }
+            });
+        }
+        
+        function displayDatabaseStats(stats) {
+            const statsDiv = document.getElementById("history-stats");
+            
+            if (!stats) {
+                statsDiv.style.display = "none";
+                return;
+            }
+            
+            // Format dates if available
+            let oldestDate = "N/A";
+            let newestDate = "N/A";
+            
+            if (stats.oldest_date) {
+                try {
+                    oldestDate = new Date(stats.oldest_date).toLocaleDateString();
+                } catch (e) {
+                    oldestDate = stats.oldest_date;
+                }
+            }
+            
+            if (stats.newest_date) {
+                try {
+                    newestDate = new Date(stats.newest_date).toLocaleDateString();
+                } catch (e) {
+                    newestDate = stats.newest_date;
+                }
+            }
+            
+            // Create stats HTML
+            statsDiv.innerHTML = `
+                <h3>Database Statistics</h3>
+                <dl>
+                    <dt>Saved searches:</dt>
+                    <dd>${stats.search_count}</dd>
+                    
+                    <dt>Results stored:</dt>
+                    <dd>${stats.result_count}</dd>
+                    
+                    <dt>Oldest search:</dt>
+                    <dd>${oldestDate}</dd>
+                    
+                    <dt>Newest search:</dt>
+                    <dd>${newestDate}</dd>
+                    
+                    <dt>Database size:</dt>
+                    <dd>${stats.db_size_mb} MB</dd>
+                </dl>
+            `;
+            
+            statsDiv.style.display = "block";
+        }
+        
+        function loadSearchHistory() {
+            console.log("Loading search history...");
+            fetch('/api/recent_searches', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log("Search history response status:", response.status);
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(searches => {
+                console.log("Search history loaded:", searches);
+                displaySearchHistory(searches);
+            })
+            .catch(error => {
+                console.error("Error loading search history:", error);
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML += 
+                        `<p>Error loading search history: ${error.message}</p>`;
+                }
+            });
+        }
+        
+        function displaySearchHistory(searches) {
+            console.log("Displaying search history:", searches);
+            const historyList = document.getElementById("history-list");
+            historyList.innerHTML = "";
+            
+            if (!searches || searches.length === 0) {
+                console.log("No searches found in history");
+                historyList.innerHTML = "<p>No search history found</p>";
+                return;
+            }
+            
+            searches.forEach(search => {
+                // Create history item
+                const historyItem = document.createElement("div");
+                historyItem.className = "history-item";
+                historyItem.setAttribute("data-id", search.id);
+                
+                // Format date nicely
+                let searchDate;
+                try {
+                    searchDate = new Date(search.created_at).toLocaleString();
+                } catch (e) {
+                    searchDate = search.created_at;
+                }
+                
+                historyItem.innerHTML = `
+                    <h3>${search.search_term}</h3>
+                    <div class="history-details">
+                        <span>Lat: ${search.latitude.toFixed(4)}, Lng: ${search.longitude.toFixed(4)}</span>
+                        <span>Radius: ${search.radius} meters</span>
+                    </div>
+                    <div class="history-date">${searchDate}</div>
+                    <button class="delete-search" title="Delete this search" data-id="${search.id}">×</button>
+                `;
+                
+                // Add click handler to the item (excluding the delete button)
+                historyItem.addEventListener("click", function(e) {
+                    // Don't trigger load if clicking delete button
+                    if (e.target.classList.contains('delete-search')) {
+                        return;
+                    }
+                    loadSearchById(search.id);
+                });
+                
+                // Add delete button handler
+                const deleteBtn = historyItem.querySelector('.delete-search');
+                deleteBtn.addEventListener("click", function(e) {
+                    e.stopPropagation(); // Prevent triggering the parent's click handler
+                    deleteSearch(search.id);
+                });
+                
+                historyList.appendChild(historyItem);
+            });
+        }
+        
+        function deleteSearch(searchId) {
+            if (!confirm("Are you sure you want to delete this search?")) {
+                return;
+            }
+            
+            fetch(`/api/delete_search/${searchId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.success) {
+                    // Remove the item from the UI
+                    const item = document.querySelector(`.history-item[data-id="${searchId}"]`);
+                    if (item) {
+                        item.remove();
+                    }
+                    
+                    // Refresh database stats
+                    loadDatabaseStats();
+                    
+                    // If no items left, show "no history" message
+                    if (document.querySelectorAll('.history-item').length === 0) {
+                        document.getElementById("history-list").innerHTML = "<p>No search history found</p>";
+                    }
+                } else {
+                    showError("Failed to delete search");
+                }
+            })
+            .catch(error => {
+                console.error("Error deleting search:", error);
+                showError(`Error deleting search: ${error.message}`);
+            });
+        }
+        
+        function cleanOldSearches() {
+            // Prompt user for days
+            const days = prompt("Delete searches older than how many days?", "30");
+            
+            if (!days) return; // User cancelled
+            
+            const daysNum = parseInt(days);
+            if (isNaN(daysNum) || daysNum < 1) {
+                showError("Please enter a valid number of days (minimum 1)");
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to delete all searches older than ${daysNum} days?`)) {
+                return;
+            }
+            
+            fetch(`/api/clean_old_searches/${daysNum}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.success) {
+                    showMessage(`Cleaned up ${result.deleted_count} old searches`);
+                    
+                    // Refresh history and stats
+                    loadSearchHistory();
+                    loadDatabaseStats();
+                } else {
+                    showError("Failed to clean search history");
+                }
+            })
+            .catch(error => {
+                console.error("Error cleaning search history:", error);
+                showError(`Error cleaning history: ${error.message}`);
+            });
+        }
+        
+        function loadSearchById(searchId) {
+            document.getElementById("loading-overlay").style.display = "flex";
+            document.getElementById("results-container").style.display = "block";
+            
+            fetch(`/api/search_by_id/${searchId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show cache indicator
+                lastSearchWasCached = true;
+                document.getElementById("cache-indicator").style.display = "inline-block";
+                
+                // Set UI to match the search parameters
+                const search = data.search;
+                currentLat = search.latitude;
+                currentLng = search.longitude;
+                currentRadius = search.radius;
+                
+                // Update form inputs
+                document.getElementById("search-term").value = search.search_term;
+                document.getElementById("radius-input").value = currentRadius;
+                document.getElementById("radius-slider").value = currentRadius;
+                document.getElementById("lat-lng-display").textContent = 
+                    `Latitude: ${currentLat.toFixed(6)}, Longitude: ${currentLng.toFixed(6)}`;
+                
+                // Update map
+                if (map) {
+                    map.setCenter({ lat: currentLat, lng: currentLng });
+                    createMarkerAndCircle(new google.maps.LatLng(currentLat, currentLng));
+                }
+                
+                // Display the results
+                allSearchResults = data.results;
+                
+                // Apply filters, sort and display
+                filterResults();
+                sortResults();
+                document.getElementById("loading-overlay").style.display = "none";
+                
+                // Close the history panel on small screens
+                if (window.innerWidth < 768 && isHistoryPanelVisible) {
+                    toggleHistoryPanel();
+                }
+                
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML = 
+                        `<pre>Loaded cached search ID ${search.id}: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            })
+            .catch(error => {
+                console.error("Error loading search by ID:", error);
+                document.getElementById("loading-overlay").style.display = "none";
+                showError(`Error loading search: ${error.message}`);
+                
+                if (debugMode) {
+                    document.getElementById("debug-output").innerHTML += 
+                        `<p>Error loading search by ID: ${error.message}</p>`;
+                }
+            });
         }
 
         function searchLocation(address) {
@@ -1018,6 +1574,17 @@
             const errorElement = document.getElementById("error-message");
             errorElement.textContent = message;
             errorElement.style.display = "block";
+            errorElement.className = "error-message";
+            setTimeout(() => {
+                errorElement.style.display = "none";
+            }, 5000);
+        }
+        
+        function showMessage(message) {
+            const errorElement = document.getElementById("error-message");
+            errorElement.textContent = message;
+            errorElement.style.display = "block";
+            errorElement.className = "error-message success-message";
             setTimeout(() => {
                 errorElement.style.display = "none";
             }, 5000);
@@ -1025,6 +1592,13 @@
 
         function searchBusinesses() {
             const params = getParameters();
+            
+            // Add cache preference parameter
+            params.use_cache = document.getElementById("use-cache").checked;
+            
+            // Reset cached indicator
+            lastSearchWasCached = false;
+            document.getElementById("cache-indicator").style.display = "none";
             
             // Show loading indicator
             document.getElementById("loading-overlay").style.display = "flex";
@@ -1088,6 +1662,11 @@
                 if (debugMode) {
                     document.getElementById("debug-output").innerHTML = 
                         `<pre>API Response: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+                // Refresh history if panel is visible
+                if (isHistoryPanelVisible) {
+                    loadSearchHistory();
                 }
             })
             .catch(error => {

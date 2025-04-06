@@ -37,3 +37,6 @@ config.json
 
 # Keep example json files in samples, but ignore real data
 !/examples/sample_data/*.json
+
+# Database files
+data/search_cache.db
