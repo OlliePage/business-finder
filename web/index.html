@@ -243,6 +243,86 @@
             margin-top: 0;
             margin-bottom: 10px;
         }
+        
+        /* Filter section styles */
+        .filter-section {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+        }
+        
+        .filter-section h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .filter-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .filter-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .range-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .range-input input[type="range"] {
+            flex: 1;
+            height: 7px;
+        }
+        
+        .range-input input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-top: -2px;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .filter-buttons button {
+            flex: 1;
+            max-width: 150px;
+        }
         .debug-buttons {
             display: flex;
             gap: 10px;
@@ -348,6 +428,51 @@
             </div>
         </div>
         
+        <!-- Filters section -->
+        <div class="filter-section">
+            <h3>Filters</h3>
+            <div class="filter-controls">
+                <div class="filter-item">
+                    <label for="min-rating">Minimum Rating (0-5):</label>
+                    <div class="range-input">
+                        <input type="range" id="min-rating-slider" min="0" max="5" step="0.1" value="0">
+                        <input type="number" id="min-rating" min="0" max="5" step="0.1" value="0">
+                    </div>
+                    <div class="range-labels">
+                        <span>Any</span>
+                        <span>5★</span>
+                    </div>
+                </div>
+                
+                <div class="filter-item">
+                    <label for="min-reviews">Minimum Reviews:</label>
+                    <div class="range-input">
+                        <input type="range" id="min-reviews-slider" min="0" max="500" step="10" value="0">
+                        <input type="number" id="min-reviews" min="0" max="1000" value="0">
+                    </div>
+                    <div class="range-labels">
+                        <span>Any</span>
+                        <span>500+</span>
+                    </div>
+                </div>
+                
+                <div class="filter-item">
+                    <label for="contact-filter">Has Contact Info:</label>
+                    <select id="contact-filter">
+                        <option value="any" selected>Any</option>
+                        <option value="phone">Has phone</option>
+                        <option value="website">Has website</option>
+                        <option value="both">Has both</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filter-buttons">
+                <button id="apply-filters" class="secondary-button">Apply Filters</button>
+                <button id="reset-filters" class="secondary-button">Reset Filters</button>
+            </div>
+        </div>
+        
         <div class="action-buttons">
             <button id="download-csv" class="secondary-button">Download as CSV</button>
             <button id="download-selected-csv" class="secondary-button">Download Visible Results</button>
@@ -360,6 +485,7 @@
                     <th class="sortable" data-sort="address">Address <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="phone">Phone <span class="sort-arrow">↕</span></th>
                     <th class="sortable" data-sort="rating">Rating <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="total_ratings">Reviews <span class="sort-arrow">↕</span></th>
                     <th>Website</th>
                 </tr>
             </thead>
@@ -391,11 +517,19 @@
         let geocoder;
         let searchBox;
         let allSearchResults = [];
+        let filteredResults = [];
         let currentPage = 1;
         let resultsPerPage = 10;
         let debugMode = false;
         let currentSortColumn = "name";
         let currentSortDirection = "asc";
+        
+        // Filter settings
+        let filterSettings = {
+            minRating: 0,
+            minReviews: 0,
+            contactInfo: "any"
+        };
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -515,7 +649,7 @@
             document.getElementById("results-limit").addEventListener("change", function() {
                 const value = this.value;
                 if (value === "all") {
-                    resultsPerPage = allSearchResults.length;
+                    resultsPerPage = filteredResults.length;
                 } else {
                     resultsPerPage = parseInt(value);
                 }
@@ -555,6 +689,25 @@
                 document.getElementById("debug-section").style.display = "block";
                 document.getElementById("toggle-debug").textContent = "Hide Debug Info";
             }
+            
+            // Add filter event listeners
+            document.getElementById("apply-filters").addEventListener("click", applyFilters);
+            document.getElementById("reset-filters").addEventListener("click", resetFilters);
+            
+            // Add range slider sync
+            document.getElementById("min-rating-slider").addEventListener("input", function() {
+                document.getElementById("min-rating").value = this.value;
+            });
+            document.getElementById("min-rating").addEventListener("change", function() {
+                document.getElementById("min-rating-slider").value = this.value;
+            });
+            
+            document.getElementById("min-reviews-slider").addEventListener("input", function() {
+                document.getElementById("min-reviews").value = this.value;
+            });
+            document.getElementById("min-reviews").addEventListener("change", function() {
+                document.getElementById("min-reviews-slider").value = this.value;
+            });
             
             // Add sorting functionality to table headers
             document.querySelectorAll('.sortable').forEach(header => {
@@ -758,6 +911,12 @@
             .then(data => {
                 allSearchResults = data;
                 
+                // Initialize all results
+                allSearchResults = data;
+                
+                // Initialize filtered results (apply any existing filters)
+                filterResults();
+                
                 // Apply default sort (name ascending)
                 currentSortColumn = "name";
                 currentSortDirection = "asc";
@@ -831,7 +990,11 @@
                 });
             }
             
+            // Initialize all results
             allSearchResults = mockBusinesses;
+            
+            // Initialize filtered results (apply any existing filters)
+            filterResults();
             
             // Apply default sort (name ascending)
             currentSortColumn = "name";
@@ -859,14 +1022,98 @@
             commandElement.style.display = debugMode ? "block" : "none";
         }
 
+        // Apply filters based on current filter settings
+        function applyFilters() {
+            // Get filter values
+            filterSettings.minRating = parseFloat(document.getElementById("min-rating").value);
+            filterSettings.minReviews = parseInt(document.getElementById("min-reviews").value);
+            filterSettings.contactInfo = document.getElementById("contact-filter").value;
+            
+            // Filter the results
+            filterResults();
+            
+            // Reset to first page
+            currentPage = 1;
+            
+            // Update the display
+            updateResultsDisplay();
+        }
+        
+        // Reset filters to default values
+        function resetFilters() {
+            // Reset form values
+            document.getElementById("min-rating").value = "0";
+            document.getElementById("min-rating-slider").value = "0";
+            document.getElementById("min-reviews").value = "0";
+            document.getElementById("min-reviews-slider").value = "0";
+            document.getElementById("contact-filter").value = "any";
+            
+            // Reset filter settings
+            filterSettings = {
+                minRating: 0,
+                minReviews: 0,
+                contactInfo: "any"
+            };
+            
+            // Apply the reset filters
+            filterResults();
+            
+            // Reset to first page
+            currentPage = 1;
+            
+            // Update the display
+            updateResultsDisplay();
+        }
+        
+        // Filter results based on current filter settings
+        function filterResults() {
+            filteredResults = allSearchResults.filter(business => {
+                // Convert rating to number
+                const rating = parseFloat(business.rating) || 0;
+                
+                // Convert reviews to number
+                const reviews = parseInt(business.total_ratings) || 0;
+                
+                // Check if has phone and website
+                const hasPhone = business.phone && business.phone !== "N/A";
+                const hasWebsite = business.website && business.website !== "N/A";
+                
+                // Apply rating filter
+                if (rating < filterSettings.minRating) {
+                    return false;
+                }
+                
+                // Apply reviews filter
+                if (reviews < filterSettings.minReviews) {
+                    return false;
+                }
+                
+                // Apply contact info filter
+                if (filterSettings.contactInfo === "phone" && !hasPhone) {
+                    return false;
+                } else if (filterSettings.contactInfo === "website" && !hasWebsite) {
+                    return false;
+                } else if (filterSettings.contactInfo === "both" && (!hasPhone || !hasWebsite)) {
+                    return false;
+                }
+                
+                // Passed all filters
+                return true;
+            });
+            
+            // Update count display
+            document.getElementById("results-count").textContent = 
+                `Found ${filteredResults.length} of ${allSearchResults.length} businesses`;
+        }
+        
         function sortResults() {
             // Create a sorted copy of the results
-            const sortedResults = [...allSearchResults].sort((a, b) => {
+            const sortedResults = [...filteredResults].sort((a, b) => {
                 let aValue = a[currentSortColumn];
                 let bValue = b[currentSortColumn];
                 
-                // Special handling for rating which includes reviews count
-                if (currentSortColumn === 'rating') {
+                // Special handling for numeric columns
+                if (currentSortColumn === 'rating' || currentSortColumn === 'total_ratings') {
                     aValue = parseFloat(aValue) || 0;
                     bValue = parseFloat(bValue) || 0;
                 } else {
@@ -883,8 +1130,8 @@
                 }
             });
             
-            // Replace the original array with sorted results
-            allSearchResults = sortedResults;
+            // Replace the filtered array with sorted results
+            filteredResults = sortedResults;
             
             // Reset to first page and update display
             currentPage = 1;
@@ -892,18 +1139,18 @@
         }
         
         function getVisibleResults() {
-            if (resultsPerPage >= allSearchResults.length) {
-                return allSearchResults;
+            if (resultsPerPage >= filteredResults.length) {
+                return filteredResults;
             }
             
             const startIndex = (currentPage - 1) * resultsPerPage;
-            const endIndex = Math.min(startIndex + resultsPerPage, allSearchResults.length);
-            return allSearchResults.slice(startIndex, endIndex);
+            const endIndex = Math.min(startIndex + resultsPerPage, filteredResults.length);
+            return filteredResults.slice(startIndex, endIndex);
         }
 
         function updateResultsDisplay() {
             const visibleResults = getVisibleResults();
-            const totalResults = allSearchResults.length;
+            const totalResults = filteredResults.length;
             const totalPages = Math.ceil(totalResults / resultsPerPage);
             
             // Update count display
@@ -942,11 +1189,20 @@
                 // Rating cell
                 const ratingCell = document.createElement("td");
                 if (business.rating !== 'N/A') {
-                    ratingCell.textContent = `${business.rating} (${business.total_ratings} reviews)`;
+                    ratingCell.textContent = business.rating;
                 } else {
-                    ratingCell.textContent = 'No ratings';
+                    ratingCell.textContent = 'N/A';
                 }
                 row.appendChild(ratingCell);
+                
+                // Reviews count cell
+                const reviewsCell = document.createElement("td");
+                if (business.total_ratings !== undefined && business.total_ratings !== 'N/A') {
+                    reviewsCell.textContent = business.total_ratings;
+                } else {
+                    reviewsCell.textContent = '0';
+                }
+                row.appendChild(reviewsCell);
                 
                 // Website cell
                 const websiteCell = document.createElement("td");
