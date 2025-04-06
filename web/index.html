@@ -248,6 +248,25 @@
             gap: 10px;
             margin-top: 10px;
         }
+        /* Sorting styles */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sort-arrow {
+            display: inline-block;
+            font-size: 14px;
+            margin-left: 5px;
+            opacity: 0.5;
+        }
+        .sort-asc .sort-arrow {
+            content: '↑';
+            opacity: 1;
+        }
+        .sort-desc .sort-arrow {
+            content: '↓';
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -337,10 +356,10 @@
         <table id="results-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Address</th>
-                    <th>Phone</th>
-                    <th>Rating</th>
+                    <th class="sortable" data-sort="name">Name <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="address">Address <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="phone">Phone <span class="sort-arrow">↕</span></th>
+                    <th class="sortable" data-sort="rating">Rating <span class="sort-arrow">↕</span></th>
                     <th>Website</th>
                 </tr>
             </thead>
@@ -375,6 +394,8 @@
         let currentPage = 1;
         let resultsPerPage = 10;
         let debugMode = false;
+        let currentSortColumn = "name";
+        let currentSortDirection = "asc";
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -534,6 +555,44 @@
                 document.getElementById("debug-section").style.display = "block";
                 document.getElementById("toggle-debug").textContent = "Hide Debug Info";
             }
+            
+            // Add sorting functionality to table headers
+            document.querySelectorAll('.sortable').forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.getAttribute('data-sort');
+                    if (currentSortColumn === column) {
+                        // Toggle direction if clicking the same column
+                        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        // Set new sort column and default to ascending
+                        currentSortColumn = column;
+                        currentSortDirection = 'asc';
+                    }
+                    
+                    // Update header styling
+                    document.querySelectorAll('th').forEach(th => {
+                        th.classList.remove('sort-asc', 'sort-desc');
+                    });
+                    this.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+                    
+                    // Update arrow content
+                    const arrow = this.querySelector('.sort-arrow');
+                    if (arrow) {
+                        arrow.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
+                    }
+                    
+                    // Reset arrows for other headers
+                    document.querySelectorAll('.sortable .sort-arrow').forEach(arrow => {
+                        if (!arrow.parentElement.classList.contains('sort-asc') && 
+                            !arrow.parentElement.classList.contains('sort-desc')) {
+                            arrow.textContent = '↕';
+                        }
+                    });
+                    
+                    // Sort and update display
+                    sortResults();
+                });
+            });
 
             // Add Ctrl+Shift+D shortcut for debug mode
             document.addEventListener('keydown', function(e) {
@@ -698,7 +757,24 @@
             })
             .then(data => {
                 allSearchResults = data;
-                updateResultsDisplay();
+                
+                // Apply default sort (name ascending)
+                currentSortColumn = "name";
+                currentSortDirection = "asc";
+                
+                // Update header styling to show sort state
+                document.querySelectorAll('th').forEach(th => {
+                    th.classList.remove('sort-asc', 'sort-desc');
+                });
+                const nameHeader = document.querySelector('th[data-sort="name"]');
+                if (nameHeader) {
+                    nameHeader.classList.add('sort-asc');
+                    const arrow = nameHeader.querySelector('.sort-arrow');
+                    if (arrow) arrow.textContent = '↑';
+                }
+                
+                // Sort and display
+                sortResults();
                 document.getElementById("loading-overlay").style.display = "none";
                 
                 // Log in debug mode
@@ -756,7 +832,24 @@
             }
             
             allSearchResults = mockBusinesses;
-            updateResultsDisplay();
+            
+            // Apply default sort (name ascending)
+            currentSortColumn = "name";
+            currentSortDirection = "asc";
+            
+            // Update header styling to show sort state
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            const nameHeader = document.querySelector('th[data-sort="name"]');
+            if (nameHeader) {
+                nameHeader.classList.add('sort-asc');
+                const arrow = nameHeader.querySelector('.sort-arrow');
+                if (arrow) arrow.textContent = '↑';
+            }
+            
+            // Sort and display
+            sortResults();
             document.getElementById("loading-overlay").style.display = "none";
             
             // Display the CLI command that would have been executed
@@ -766,6 +859,38 @@
             commandElement.style.display = debugMode ? "block" : "none";
         }
 
+        function sortResults() {
+            // Create a sorted copy of the results
+            const sortedResults = [...allSearchResults].sort((a, b) => {
+                let aValue = a[currentSortColumn];
+                let bValue = b[currentSortColumn];
+                
+                // Special handling for rating which includes reviews count
+                if (currentSortColumn === 'rating') {
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+                } else {
+                    // Convert to lowercase strings for text comparison
+                    aValue = (aValue || '').toString().toLowerCase();
+                    bValue = (bValue || '').toString().toLowerCase();
+                }
+                
+                // Compare based on direction
+                if (currentSortDirection === 'asc') {
+                    return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+                } else {
+                    return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+                }
+            });
+            
+            // Replace the original array with sorted results
+            allSearchResults = sortedResults;
+            
+            // Reset to first page and update display
+            currentPage = 1;
+            updateResultsDisplay();
+        }
+        
         function getVisibleResults() {
             if (resultsPerPage >= allSearchResults.length) {
                 return allSearchResults;
