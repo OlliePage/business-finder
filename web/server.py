@@ -83,6 +83,27 @@ def migrate_database(conn, cursor):
         cursor.execute("ALTER TABLE searches ADD COLUMN adapt_sub_radius BOOLEAN DEFAULT 1")
         conn.commit()
     
+    # Add filter columns if they don't exist
+    if 'min_price' not in columns:
+        print("Migrating: Adding min_price column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN min_price INTEGER")
+        conn.commit()
+    
+    if 'max_price' not in columns:
+        print("Migrating: Adding max_price column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN max_price INTEGER")
+        conn.commit()
+    
+    if 'open_now' not in columns:
+        print("Migrating: Adding open_now column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN open_now BOOLEAN")
+        conn.commit()
+    
+    if 'place_type' not in columns:
+        print("Migrating: Adding place_type column to searches table")
+        cursor.execute("ALTER TABLE searches ADD COLUMN place_type TEXT")
+        conn.commit()
+    
     print("Database migration checks completed")
 
 
@@ -118,6 +139,10 @@ def init_database():
         sub_radius INTEGER DEFAULT 3000,
         max_workers INTEGER DEFAULT 5,
         adapt_sub_radius BOOLEAN DEFAULT 1,
+        min_price INTEGER,
+        max_price INTEGER,
+        open_now BOOLEAN,
+        place_type TEXT,
         created_at TIMESTAMP,
         hash TEXT UNIQUE
     )
@@ -197,8 +222,8 @@ def cache_search_results(params, results):
             print("Creating new search record")
             cursor.execute('''
             INSERT INTO searches 
-            (search_term, latitude, longitude, radius, sub_radius, max_workers, adapt_sub_radius, created_at, hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (search_term, latitude, longitude, radius, sub_radius, max_workers, adapt_sub_radius, min_price, max_price, open_now, place_type, created_at, hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 params.get('search_term', ''),
                 params.get('latitude', 0),
@@ -207,6 +232,10 @@ def cache_search_results(params, results):
                 params.get('sub_radius', 3000),
                 params.get('max_workers', 5),
                 params.get('adapt_sub_radius', True),
+                params.get('min_price'),
+                params.get('max_price'),
+                params.get('open_now'),
+                params.get('place_type'),
                 datetime.now().isoformat(),
                 param_hash
             ))
@@ -252,7 +281,7 @@ def get_cached_results(params):
         
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.min_price, s.max_price, s.open_now, s.place_type, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.hash = ?
@@ -270,11 +299,15 @@ def get_cached_results(params):
                 'sub_radius': result[5],
                 'max_workers': result[6],
                 'adapt_sub_radius': bool(result[7]),
-                'created_at': result[8]
+                'min_price': result[8],
+                'max_price': result[9],
+                'open_now': bool(result[10]) if result[10] is not None else None,
+                'place_type': result[11],
+                'created_at': result[12]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[9]),
+                'results': json.loads(result[13]),
                 'cached': True
             }
         return None
@@ -337,7 +370,7 @@ def get_search_by_id(search_id):
     try:
         # Get the search and results
         cursor.execute('''
-        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.created_at, r.json_data
+        SELECT s.id, s.search_term, s.latitude, s.longitude, s.radius, s.sub_radius, s.max_workers, s.adapt_sub_radius, s.min_price, s.max_price, s.open_now, s.place_type, s.created_at, r.json_data
         FROM searches s
         JOIN results r ON s.id = r.search_id
         WHERE s.id = ?
@@ -355,11 +388,15 @@ def get_search_by_id(search_id):
                 'sub_radius': result[5],
                 'max_workers': result[6],
                 'adapt_sub_radius': bool(result[7]),
-                'created_at': result[8]
+                'min_price': result[8],
+                'max_price': result[9],
+                'open_now': bool(result[10]) if result[10] is not None else None,
+                'place_type': result[11],
+                'created_at': result[12]
             }
             return {
                 'search': search_info,
-                'results': json.loads(result[9]),
+                'results': json.loads(result[13]),
                 'cached': True
             }
         return None
@@ -702,12 +739,42 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
             # Get output format
             output_format = params.get('output_format', 'csv')
             
+            # Get new pre-search filter parameters
+            min_price = params.get('min_price')
+            max_price = params.get('max_price')
+            open_now = params.get('open_now')
+            place_type = params.get('place_type')
+            
+            # Validate price range parameters
+            if min_price is not None:
+                try:
+                    min_price = int(min_price)
+                    if not 0 <= min_price <= 4:
+                        self.send_error(400, "min_price must be between 0 and 4")
+                        return
+                except (ValueError, TypeError):
+                    self.send_error(400, "min_price must be a valid integer")
+                    return
+            
+            if max_price is not None:
+                try:
+                    max_price = int(max_price)
+                    if not 0 <= max_price <= 4:
+                        self.send_error(400, "max_price must be between 0 and 4")
+                        return
+                except (ValueError, TypeError):
+                    self.send_error(400, "max_price must be a valid integer")
+                    return
+            
+            if open_now is not None:
+                open_now = bool(open_now)
+            
             # Validate parameters
             if not all([search_term, latitude is not None, longitude is not None, radius]):
                 self.send_error(400, "Missing required parameters")
                 return
             
-            # Create search params dict for cache lookup
+            # Create search params dict for cache lookup (include filters for cache key)
             search_params = {
                 'search_term': search_term,
                 'latitude': latitude,
@@ -715,7 +782,11 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                 'radius': radius,
                 'sub_radius': sub_radius,
                 'max_workers': max_workers,
-                'adapt_sub_radius': adapt_sub_radius
+                'adapt_sub_radius': adapt_sub_radius,
+                'min_price': min_price,
+                'max_price': max_price,
+                'open_now': open_now,
+                'place_type': place_type
             }
             
             # Log original coordinates before rounding
@@ -767,7 +838,11 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                 radius, 
                 sub_radius=sub_radius, 
                 max_workers=max_workers,
-                adapt_sub_radius=adapt_sub_radius
+                adapt_sub_radius=adapt_sub_radius,
+                min_price=min_price,
+                max_price=max_price,
+                open_now=open_now,
+                place_type=place_type
             )
             
             # Save results to data directory
@@ -856,20 +931,10 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                     # Export results to Google Sheets
                     print(f"Exporting to Google Sheets: {len(businesses)} businesses")
                     
-                    # Create a simple business record for testing if the list is empty
+                    # Don't create dummy data - if no businesses found, export empty sheet
                     if not businesses:
-                        print("WARNING: No businesses found, creating a dummy record for testing")
-                        businesses = [{
-                            "name": "Test Business",
-                            "address": "Test Address",
-                            "phone": "123-456-7890",
-                            "website": "https://example.com",
-                            "rating": 4.5,
-                            "total_ratings": 100,
-                            "place_id": "test_place_id",
-                            "primary_type": "test_type",
-                            "secondary_types": ["type1", "type2"]
-                        }]
+                        print("WARNING: No businesses found for the search criteria")
+                        # Continue with empty list - Google Sheets export will handle this
                     
                     # Try export with verbose error handling
                     print("Calling export_to_sheets function with valid parameters...")
@@ -918,26 +983,17 @@ class BusinessFinderHandler(SimpleHTTPRequestHandler):
                     import traceback
                     print(f"Detailed error: {traceback.format_exc()}")
                     
-                    # Create a fallback URL for testing
-                    sheet_url = f"https://docs.google.com/spreadsheets/d/1MoCkSpReAdShEeTiDfOrDeMoNsTrAtIoN"
-                    print(f"Using fallback URL: {sheet_url}")
-                    
-                    # Instead of sending an error, send a mock URL for demo purposes
-                    mock_id = "1MoCkSpReAdShEeTiDfOrDeMoNsTrAtIoN"
-                    mock_url = f"https://docs.google.com/spreadsheets/d/{mock_id}"
-                    
-                    self.send_response(200)
+                    # Return proper error response instead of mock data
+                    self.send_response(500)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS
                     self.end_headers()
                     
-                    # Send a demo URL as JSON with an error message and specific instructions
+                    # Send proper error response
                     self.wfile.write(json.dumps({
-                        'success': True,
-                        'url': mock_url,
-                        'demo_mode': True,
+                        'success': False,
                         'error': error_message,
-                        'fix_instructions': "To fix Google Sheets export issues, please enable both Google Sheets API and Google Drive API in your Google Cloud Console."
+                        'fix_instructions': "To fix Google Sheets export issues, please enable both Google Sheets API and Google Drive API in your Google Cloud Console and ensure proper OAuth credentials are configured."
                     }).encode())
             else:
                 # For CSV and JSON formats, send the raw data
