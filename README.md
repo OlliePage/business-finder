@@ -19,7 +19,8 @@ Business Finder is a tool that combines a visual map interface with the power of
 - **Flexible Search Terms**: Find any type of business (restaurants, hotels, retail, etc.)
 - **Place Type Search**: Search directly by place type categories (e.g., restaurant, cafe, etc.)
 - **Enhanced Categorization**: Leverage Google's hierarchical categorization with primary and secondary types
-- **Advanced Filtering**: Filter results by rating, review count, type, price level, business status and more
+- **Pre-Search Filtering**: Filter by price level, place type, and open status before searching to reduce API costs
+- **Advanced Post-Search Filtering**: Filter results by rating, review count, business status and more
 - **Sortable Results**: Sort business listings by name, type, rating, price level, etc.
 - **Comprehensive Data Export**: Get business names, addresses, phone numbers, websites, ratings, types, and more
 - **Multiple Export Formats**: Save results as CSV, JSON, or Google Sheets
@@ -135,11 +136,15 @@ Follow these steps:
 3. Enter your search term (e.g., "coffee shop") or place type (e.g., "restaurant", "cafe")
    - Click the "Place Types" button to see a list of available place types
    - Select a place type from the dropdown to search by category
-4. Click "Search Businesses" to see results
-5. Filter and sort results:
+4. **Set Pre-Search Filters** (optional but recommended to reduce API costs):
+   - **Price Level**: Set minimum/maximum price range (Free, $, $$, $$$, $$$$)
+   - **Open Now**: Check to only show currently open businesses
+   - **Specific Place Type**: Enter a Google place type (e.g., "restaurant", "bank")
+5. Click "Search Businesses" to see results
+6. Filter and sort results:
    - Filter by minimum rating, review count, place type, price level, etc.
    - Sort by clicking on column headers (name, type, rating, etc.)
-6. Download results as CSV or click "Copy Parameters" to get the command-line version
+7. Download results as CSV or click "Copy Parameters" to get the command-line version
 
 ### 4. Run the Search
 
@@ -183,6 +188,10 @@ Options:
 - `--adaptive-radius` - Dynamically adjust sub-radius based on result density (enabled by default)
 - `--no-adaptive-radius` - Disable dynamic sub-radius adjustment
 - `--verbose` - Enable verbose output with detailed search logs
+- `--min-price LEVEL` - Minimum price level (0-4: Free, $, $$, $$$, $$$$)
+- `--max-price LEVEL` - Maximum price level (0-4: Free, $, $$, $$$, $$$$)
+- `--open-now` - Only return businesses currently open
+- `--place-type TYPE` - Specific Google place type (e.g., restaurant, bank, pharmacy)
 - `--output FILE` - Output filename
 - `--format FORMAT` - Output format (csv or json)
 - `--json-params JSON` - JSON string with all parameters
@@ -211,6 +220,19 @@ business-finder search --search-term "coffee shop" --latitude 37.7749 --longitud
 
 # Search by place type (using Google Places API types)
 business-finder search --search-term "restaurant" --latitude 37.7749 --longitude -122.4194 --radius 1000
+```
+
+### Pre-Search Filtering Examples
+
+```bash
+# Search for moderately priced restaurants that are currently open
+business-finder search --search-term "restaurant" --latitude 37.7749 --longitude -122.4194 --radius 1500 --min-price 1 --max-price 3 --open-now
+
+# Search for expensive hotels using place type filter
+business-finder search --latitude 40.7128 --longitude -74.0060 --radius 2000 --place-type "lodging" --min-price 3
+
+# Search for free/inexpensive attractions
+business-finder search --latitude 51.5074 --longitude -0.1278 --radius 3000 --place-type "tourist_attraction" --max-price 1
 ```
 
 ### Advanced Usage
@@ -252,6 +274,19 @@ businesses = search_places(
     latitude=34.0522,
     longitude=-118.2437,
     radius=1500
+)
+
+# Search with pre-filtering to reduce API costs
+businesses_filtered = search_places(
+    api_key="YOUR_API_KEY",
+    search_term="restaurant",
+    latitude=34.0522,
+    longitude=-118.2437,
+    radius=1500,
+    min_price=2,         # Moderate pricing minimum
+    max_price=4,         # Up to very expensive
+    open_now=True,       # Only currently open
+    place_type="restaurant"  # Specific place type
 )
 
 # Grid-based search for larger radius (multiple API calls in parallel)
@@ -431,6 +466,8 @@ These enhanced categorization features make it easier to find exactly what you'r
 - API usage is subject to Google's pricing and quota limits
 - Very dense areas may still not return all possible results
 - Not all place types are supported by Google in all regions
+- **Price level filtering**: Many businesses in Google's database lack price information, so using `min_price`/`max_price` filters may significantly reduce results
+- **Rating and review count filtering**: Can only be applied post-search, not as pre-search filters
 
 ## Debugging Tools
 
