@@ -126,7 +126,7 @@ def generate_grid_points(center_lat, center_lng, radius, sub_radius=5000):
     return points
 
 
-def search_places_single(api_key, search_term, latitude, longitude, radius):
+def search_places_single(api_key, search_term, latitude, longitude, radius, min_price=None, max_price=None, open_now=None, place_type=None):
     """
     Search for places matching the criteria and fetch their details for a single point
     This is the original search implementation, renamed to be used as a building block
@@ -144,15 +144,35 @@ def search_places_single(api_key, search_term, latitude, longitude, radius):
                 "key": api_key,
             }
             
-            # Check if search_term is a place type (contains no spaces and uses underscores)
-            # If it looks like a place type, use it as a type parameter instead of keyword
-            if search_term and "_" in search_term and " " not in search_term:
+            # Handle type parameter - explicit place_type takes precedence
+            if place_type:
+                params["type"] = place_type
+                print(f"Searching for places with type: {place_type}")
+                log_capture.add_log("INFO", f"Searching by place type: {place_type}")
+            elif search_term and "_" in search_term and " " not in search_term:
+                # Check if search_term is a place type (contains no spaces and uses underscores)
                 params["type"] = search_term
                 print(f"Searching for places with type: {search_term}")
                 log_capture.add_log("INFO", f"Searching by place type: {search_term}")
             else:
                 # Otherwise, use it as a keyword search
                 params["keyword"] = search_term
+            
+            # Add optional pre-search filters
+            if min_price is not None:
+                params["minprice"] = min_price
+                print(f"Filtering by minimum price level: {min_price}")
+                log_capture.add_log("INFO", f"Minimum price filter: {min_price}")
+            
+            if max_price is not None:
+                params["maxprice"] = max_price
+                print(f"Filtering by maximum price level: {max_price}")
+                log_capture.add_log("INFO", f"Maximum price filter: {max_price}")
+            
+            if open_now is not None:
+                params["opennow"] = "true" if open_now else "false"
+                print(f"Filtering by open now: {open_now}")
+                log_capture.add_log("INFO", f"Open now filter: {open_now}")
 
             # Add page token if we have one
             if page_token:
@@ -233,7 +253,7 @@ def get_search_logs():
     return log_capture.get_logs()
 
 
-def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, initial_sub_radius=3000, min_sub_radius=500):
+def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, initial_sub_radius=3000, min_sub_radius=500, min_price=None, max_price=None, open_now=None, place_type=None):
     """
     Determine the optimal sub-radius for an area by performing a smoke test
     and recursively halving the radius if the result count is near the API limit
@@ -268,7 +288,7 @@ def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, init
     current_sub_radius = initial_sub_radius
     
     # Try with initial sub-radius
-    test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius)
+    test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius, min_price, max_price, open_now, place_type)
     result_count = len(test_results)
     
     log_capture.add_log(
@@ -295,7 +315,7 @@ def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, init
         )
         
         # Try with reduced sub-radius
-        test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius)
+        test_results = search_places_single(api_key, search_term, latitude, longitude, current_sub_radius, min_price, max_price, open_now, place_type)
         result_count = len(test_results)
         
         log_capture.add_log(
@@ -312,7 +332,7 @@ def determine_optimal_sub_radius(api_key, search_term, latitude, longitude, init
     
     return current_sub_radius
 
-def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=3000, max_workers=5, adapt_sub_radius=True):
+def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=3000, max_workers=5, adapt_sub_radius=True, min_price=None, max_price=None, open_now=None, place_type=None):
     """
     Search for places matching criteria using a grid-based approach for large radii
     
@@ -358,7 +378,7 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         print(log_msg)
         log_capture.add_log("INFO", log_msg)
         
-        results = search_places_single(api_key, search_term, latitude, longitude, radius)
+        results = search_places_single(api_key, search_term, latitude, longitude, radius, min_price, max_price, open_now, place_type)
         
         # Log search completion
         duration = time.time() - start_time
@@ -377,7 +397,7 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
         # Determine optimal sub-radius for this location
         effective_sub_radius = determine_optimal_sub_radius(
             api_key, search_term, latitude, longitude, 
-            initial_sub_radius=sub_radius
+            initial_sub_radius=sub_radius, min_price=min_price, max_price=max_price, open_now=open_now, place_type=place_type
         )
         
         log_capture.add_log(
@@ -433,7 +453,11 @@ def search_places(api_key, search_term, latitude, longitude, radius, sub_radius=
                 search_term, 
                 point[0], 
                 point[1], 
-                effective_sub_radius
+                effective_sub_radius,
+                min_price,
+                max_price,
+                open_now,
+                place_type
             ): point for point in grid_points
         }
         
