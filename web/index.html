@@ -917,6 +917,50 @@
                         <input type="range" id="radius-slider" min="100" max="50000" step="100" value="1000">
                     </div>
 
+                    <!-- Pre-search Filters -->
+                    <div class="control-group">
+                        <label>Pre-Search Filters:</label>
+                        <p style="font-size: 12px; color: #666; margin: 5px 0;">Apply filters before searching to reduce API costs</p>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                            <div>
+                                <label for="min-price">Min Price Level:</label>
+                                <select id="min-price">
+                                    <option value="">Any</option>
+                                    <option value="0">$ (Free)</option>
+                                    <option value="1">$ (Inexpensive)</option>
+                                    <option value="2">$$ (Moderate)</option>
+                                    <option value="3">$$$ (Expensive)</option>
+                                    <option value="4">$$$$ (Very Expensive)</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label for="max-price">Max Price Level:</label>
+                                <select id="max-price">
+                                    <option value="">Any</option>
+                                    <option value="0">$ (Free)</option>
+                                    <option value="1">$ (Inexpensive)</option>
+                                    <option value="2">$$ (Moderate)</option>
+                                    <option value="3">$$$ (Expensive)</option>
+                                    <option value="4">$$$$ (Very Expensive)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 10px;">
+                            <label>
+                                <input type="checkbox" id="open-now"> Only show places currently open
+                            </label>
+                        </div>
+                        
+                        <div style="margin-top: 10px;">
+                            <label for="place-type-filter">Specific Place Type:</label>
+                            <input type="text" id="place-type-filter" placeholder="e.g., restaurant, cafe, bank" style="margin-top: 5px;">
+                            <p style="font-size: 11px; color: #666; margin: 2px 0;">Leave empty to use search term. Use Google place types like 'restaurant', 'bank', etc.</p>
+                        </div>
+                    </div>
+
                     <div class="control-group">
                         <label>Advanced Options:</label>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -1400,36 +1444,17 @@
                         console.log("Google Sheets response data:", JSON.stringify(data));
                         console.log("JSON parsed successfully");
                         
-                        if (data && data.url) {
-                            // Show appropriate message based on if it's a demo or real export
-                            if (data.demo_mode) {
-                                if (data.error) {
-                                    // Show user-friendly error message
-                                    showError(data.error);
-                                    console.warn("Original error:", data.error);
-                                    
-                                    // Show fix instructions if available
-                                    if (data.fix_instructions) {
-                                        console.log("Fix instructions:", data.fix_instructions);
-                                        setTimeout(() => {
-                                            alert(data.fix_instructions);
-                                        }, 1000);
-                                    }
-                                } else {
-                                    showMessage("Demo mode: Opening mock Google Sheet for demonstration");
-                                }
-                                console.log("Note: This is a demo URL. In production, you would need Google API credentials.");
-                            } else {
-                                showMessage("Export successful! Opening Google Sheet...");
-                            }
+                        if (data && data.success && data.url) {
+                            // Successful export
+                            showMessage("Export successful! Opening Google Sheet...");
                             
                             // Open the Google Sheets URL in a new tab
                             console.log("Opening URL in new tab:", data.url);
-                            console.log("Opening URL: " + data.url);
                             window.open(data.url, '_blank');
                         } else {
-                            console.log("Error: No URL in response data");
-                            throw new Error('No Google Sheets URL returned');
+                            // Handle error response
+                            const errorMsg = data.error || 'Unknown error occurred during export';
+                            throw new Error(errorMsg);
                         }
                     })
                     .catch(error => {
@@ -2078,12 +2103,33 @@ Please refresh the page and try your search again.
 
         function getParameters() {
             const searchTerm = document.getElementById("search-term").value || "business";
-            return {
+            const minPrice = document.getElementById("min-price").value;
+            const maxPrice = document.getElementById("max-price").value;
+            const openNow = document.getElementById("open-now").checked;
+            const placeType = document.getElementById("place-type-filter").value;
+            
+            const params = {
                 search_term: searchTerm,
                 latitude: currentLat,
                 longitude: currentLng,
                 radius: currentRadius
             };
+            
+            // Add filter parameters only if they have values
+            if (minPrice !== "") {
+                params.min_price = parseInt(minPrice);
+            }
+            if (maxPrice !== "") {
+                params.max_price = parseInt(maxPrice);
+            }
+            if (openNow) {
+                params.open_now = true;
+            }
+            if (placeType) {
+                params.place_type = placeType;
+            }
+            
+            return params;
         }
 
         function getCliCommand(params) {
@@ -2277,82 +2323,23 @@ Please refresh the page and try your search again.
             .catch(error => {
                 console.error("Error fetching search results:", error);
                 
-                // Since we might not have a backend set up, fallback to mock data for demonstration
-                fallbackToMockData(params);
+                // Show error message instead of mock data
+                showMessage(`Search failed: ${error.message}. Please check your API configuration and try again.`, "error");
+                
+                // Clear any existing results
+                allSearchResults = [];
+                filteredResults = [];
+                updateResultsTable();
                 
                 // Log error in debug mode
                 if (debugMode) {
                     document.getElementById("debug-output").innerHTML = 
                         `<p>Error: ${error.message}</p>
-                         <p>Falling back to mock data for demonstration purposes.</p>
-                         <p>In a production environment, you would need to set up the backend API endpoint.</p>`;
+                         <p>Please ensure the backend server is running and API is configured correctly.</p>`;
                 }
             });
         }
 
-        // Fallback function to generate mock data that matches the real data structure
-        function fallbackToMockData(params) {
-            console.log("Falling back to mock data for demonstration");
-            
-            const mockBusinessNames = [
-                "Cafe Sunshine", "Downtown Restaurant", "Corner Bistro", 
-                "Main Street Bakery", "Riverside Diner", "City View Bar",
-                "Ocean Grill", "Mountain Lodge", "Green Valley Cafe", 
-                "Sunset Restaurant", "Morning Brew", "Starlight Cafe"
-            ];
-            
-            // Generate between 5 and 12 results
-            const resultCount = Math.floor(Math.random() * 8) + 5;
-            const mockBusinesses = [];
-            
-            for (let i = 0; i < resultCount; i++) {
-                const nameIndex = i % mockBusinessNames.length;
-                const rating = (Math.random() * 2 + 3).toFixed(1); // Random rating between 3.0 and 5.0
-                const reviewCount = Math.floor(Math.random() * 300) + 50; // Random review count between 50 and 350
-                
-                mockBusinesses.push({
-                    name: `${mockBusinessNames[nameIndex]}`,
-                    address: `${100 + i} ${(['Main', 'Oak', 'Pine', 'Maple', 'Cedar'])[i % 5]} St, Near ${params.search_term}`,
-                    phone: `(123) ${456 + i}-${7890 + i}`,
-                    website: `https://example.com/${mockBusinessNames[nameIndex].toLowerCase().replace(/\s+/g, '')}`,
-                    rating: rating,
-                    total_ratings: reviewCount,
-                    is_open_now: Math.random() > 0.3 ? "Yes" : "No", 
-                    place_id: `ChIJ${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`
-                });
-            }
-            
-            // Initialize all results
-            allSearchResults = mockBusinesses;
-            
-            // Initialize filtered results (apply any existing filters)
-            filterResults();
-            
-            // Apply default sort (name ascending)
-            currentSortColumn = "name";
-            currentSortDirection = "asc";
-            
-            // Update header styling to show sort state
-            document.querySelectorAll('th').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-            });
-            const nameHeader = document.querySelector('th[data-sort="name"]');
-            if (nameHeader) {
-                nameHeader.classList.add('sort-asc');
-                const arrow = nameHeader.querySelector('.sort-arrow');
-                if (arrow) arrow.textContent = '↑';
-            }
-            
-            // Sort and display
-            sortResults();
-            document.getElementById("loading-overlay").style.display = "none";
-            
-            // Display the CLI command that would have been executed
-            const commandElement = document.getElementById("command-display");
-            const command = getCliCommand(params);
-            commandElement.textContent = command;
-            commandElement.style.display = debugMode ? "block" : "none";
-        }
 
         // Apply filters based on current filter settings
         function applyFilters() {
